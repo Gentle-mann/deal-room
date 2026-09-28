@@ -118,7 +118,9 @@ function fitSafe(dur = 700) {
   const eles = cy.nodes(".agent, .coname"); if (!eles.length) return;
   const w = cy.width(), h = cy.height(), bb = eles.boundingBox(), p = SAFE;
   const z = Math.min((w - p.l - p.r) / Math.max(bb.w, 1), (h - p.t - p.b) / Math.max(bb.h, 1), 1.6);
-  cy.animate({ zoom: z, pan: { x: p.l + (w - p.l - p.r) / 2 - z * (bb.x1 + bb.w / 2), y: p.t + (h - p.t - p.b) / 2 - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic" });
+  cy.nodes(".coname").style("font-size", Math.max(26, 16 / z)); // company names stay >= 16px on screen at every depth
+  cy.stop(true, false);
+  cy.animate({ zoom: z, pan: { x: p.l + (w - p.l - p.r) / 2 - z * (bb.x1 + bb.w / 2), y: p.t + (h - p.t - p.b) / 2 - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic", queue: false });
 }
 function render(animate) {
   const companies = world();
@@ -127,6 +129,8 @@ function render(animate) {
   const els = built.els.filter((e) => !(e.group === "nodes" && e.classes === "company"));
   for (const e of els) if (e.group === "nodes") delete e.data.parent;
   for (const c of companies) { const a = built.anchors[c.name]; els.push({ group: "nodes", data: { id: "name:" + c.name, label: c.name + (c.buyer ? " · buyer" : "") }, position: { x: a.x - Math.cos(a.axis) * 160, y: a.y - Math.sin(a.axis) * 160 - 30 }, classes: "coname" }); }
+  // The canvas is wide and short: flatten the cone so it fills the width instead of shrinking to a blob
+  const SQ = 0.6; for (const e of els) if (e.position) e.position = { x: e.position.x, y: e.position.y * SQ };
   const old = new Map(cy.nodes(".agent").map((n) => [n.id(), { ...n.position() }]));
   cy.batch(() => {
     cy.elements().remove(); cy.add(els);

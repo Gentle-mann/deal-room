@@ -67,7 +67,7 @@ export type DealState = {
   invoice?: { id: string; number?: string; status: string; amount: number; url?: string; live: boolean; vendor?: string; dueDays?: number; sentAt?: number; paidAt?: number; simulated?: boolean };
   tenant?: { path: string; at: number };
   done?: boolean;
-  outcome?: "closed" | "stopped" | "walked";
+  outcome?: "closed" | "stopped" | "walked" | "error";
 };
 
 export class DealRoom extends DurableObject<Env> {
@@ -159,6 +159,8 @@ export class DealRoom extends DurableObject<Env> {
       await this.run();
     } catch (e: any) {
       this.ev("Deal Room", "error", `Engine error: ${e?.message ?? e}`);
+      d.finishedAt = Date.now();
+      d.outcome = "error";
       d.done = true;
       await this.save();
     }

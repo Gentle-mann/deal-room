@@ -56,10 +56,16 @@ export default {
       const at = new Date(s.tenant.at).toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles" });
       return new Response(
         `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${s.winner.name} workspace</title>
-<style>body{font-family:system-ui,sans-serif;background:#0b1020;color:#e8ecf6;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
-.card{max-width:560px;width:100%;background:#131a33;border:1px solid #2a3560;border-radius:16px;padding:28px}
-h1{margin:0 0 6px;font-size:28px}.muted{color:#9aa6c7}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222b4d}
-.ok{color:#5be49b;font-weight:600}</style></head><body><div class="card">
+<script>try{if(localStorage.getItem("dealroom-theme")==="light")document.documentElement.dataset.theme="light";}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
+<style>html,body{height:auto;overflow:auto}
+body{display:grid;grid-template-rows:none;place-items:center;min-height:100vh;margin:0;padding:16px;background:var(--bg);color:var(--text);font:400 14px/20px Inter,system-ui,sans-serif}
+.card{max-width:560px;width:100%;background:var(--surface-1);border:1px solid var(--line-strong);border-radius:12px;padding:24px}
+h1{margin:0 0 8px;font:700 28px/36px Inter,sans-serif;letter-spacing:-0.02em}.muted{color:var(--text-2)}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}.row b{font-variant-numeric:tabular-nums}
+.ok{color:var(--green);font-weight:600}</style></head><body><div class="card">
 <div class="muted">${s.winner.name}</div><h1>Welcome, ${BUYER.name}</h1>
 <p class="ok">Workspace live. Provisioned automatically at ${at} PT after payment cleared.</p>
 <div class="row"><span>Seats</span><b>${o.seats}</b></div>

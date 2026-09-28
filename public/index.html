@@ -13,7 +13,7 @@
 <style>
 .main { display:grid; grid-template-columns:minmax(0,1fr) 400px; min-height:0; transition:grid-template-columns 320ms var(--ease-out); }
 .main.spot { grid-template-columns:minmax(0,1fr) 560px; }
-.main.nopanel { grid-template-columns:minmax(0,1fr) 0px; }
+.main.nopanel, .main.spot.nopanel { grid-template-columns:minmax(0,1fr) 0px !important; }
 .main.nopanel .side { overflow:hidden; border:0; }
 .left { display:grid; grid-template-rows:minmax(0,1fr) 288px; min-width:0; min-height:0; }
 .side { background:var(--surface-1); border-left:1px solid var(--line-strong); display:flex; flex-direction:column; min-height:0; min-width:0; }
@@ -43,7 +43,8 @@
 .logstage { padding:16px 0 6px; border-top:1px solid var(--line-strong); font:600 12px/16px Inter,sans-serif; color:var(--text-2); }
 .pricechart { width:100%; margin-top:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; }
 .spothead { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
-.call { background:var(--surface-2); border:1px solid var(--line-strong); border-radius:12px; padding:16px; margin-bottom:12px; animation:callin 240ms var(--ease-out); }
+.call { background:var(--surface-2); border:1px solid var(--line-strong); border-radius:12px; padding:16px; margin-bottom:12px; }
+.call.new, .step.new { animation:callin 240ms var(--ease-out); }
 .call.running { border-color:var(--amber-line); box-shadow:inset 3px 0 0 var(--amber); }
 .call .cm { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); }
 .call .lbl { font:600 12px/16px Inter,sans-serif; color:var(--text-2); margin:12px 0 4px; }
@@ -56,13 +57,13 @@
 @keyframes blink { 50% { opacity:0; } }
 @keyframes callin { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 .check { margin-top:12px; border-radius:8px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; }
-.check .ic { width:18px; height:18px; border-radius:50%; flex:none; display:grid; place-items:center; font:700 11px/1 Inter,sans-serif; margin-top:1px; }
+.check .ic { width:18px; height:18px; border-radius:50%; flex:none; display:grid; place-items:center; font:700 12px/1 Inter,sans-serif; margin-top:1px; }
 .check.ok { background:var(--green-bg); border:1px solid var(--green-line); } .check.ok .ic { background:var(--green); color:var(--on-status); }
 .check.bad { background:var(--red-bg); border:1px solid var(--red-line); } .check.bad .ic { background:var(--red); color:var(--on-red); }
 .check .ct { font:600 14px/20px Inter,sans-serif; } .check.ok .ct { color:var(--green); } .check.bad .ct { color:var(--red); }
 .check .cn { font:400 13px/20px Inter,sans-serif; color:var(--text-2); }
 .steps { margin-top:6px; display:grid; gap:6px; }
-.step { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; font:400 13px/18px Inter,sans-serif; animation:callin 240ms var(--ease-out); }
+.step { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; font:400 13px/18px Inter,sans-serif; }
 .step .st { font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); white-space:nowrap; }
 .step .tt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
 .step.running .st { color:var(--amber); }
@@ -146,7 +147,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
 const SHORT = ["Intake","Proposals","Security","Negotiate","Legal","Award","Approvals","PO","Invoice","Provision"];
-const isClosed = (s) => !!s?.done && (s.outcome ? s.outcome === "closed" : !!s.winner);
+const isClosed = (s) => !!s?.done && (s.outcome ? s.outcome === "closed" : !!s.winner && !!s.finishedAt);
 const codeCls = (e) => (e.kind === "block" || e.art === "fraud" || e.art === "eliminate" || e.art === "deny") ? "block" : (e.kind === "money" || e.kind === "win") ? "money" : (e.kind === "flag" || e.kind === "escalate") ? "flag" : "";
 
 applyTheme(getTheme());
@@ -157,19 +158,20 @@ const race = createDealChart($("#raceCanvas"), $("#raceHead"));
 document.fonts?.ready.then(() => { cy.style(buildStyle()); race.chart.update("none"); });
 
 let dealId = new URLSearchParams(location.search).get("deal"), state = null, seen = 0, focusId = null, timer = null, builtFor = null;
-let follow = false, lastFollow = 0, frame = 0, blockTimer = null, takeoverDismissed = false;
+let follow = false, lastFollow = 0, frame = 0, blockTimer = null, takeoverDismissed = false, animTimers = [], invHide = null, takeoverTimer = null, starting = false;
 const blockedUntil = {};
 
 // ---------- camera: never put a node under an overlay ----------
 const SAFE = () => (innerWidth <= 1360 || innerHeight <= 780) ? { t:80, r:24, b:112, l:24 } : { t:92, r:32, b:124, l:32 };
 function fitSafe(eles = cy.elements(), dur = 600, maxZ = 1.6) {
   eles = eles.filter((e) => !e.hasClass("packet")); if (!eles.length) return;
-  eles = eles.union(eles.parents());
+  const par = eles.parents(); if (par.length === 1) eles = eles.union(par); // frame a whole company box only when the fit is inside one company
   const p = SAFE(), inv = $("#invoice"); if (!inv.classList.contains("hidden")) p.r = inv.offsetWidth + 48;
   const w = cy.width(), h = cy.height(), bb = eles.boundingBox();
   const z = Math.min((w - p.l - p.r) / Math.max(bb.w, 1), (h - p.t - p.b) / Math.max(bb.h, 1), maxZ);
   const cx = p.l + (w - p.l - p.r) / 2, cyy = p.t + (h - p.t - p.b) / 2;
-  cy.animate({ zoom: z, pan: { x: cx - z * (bb.x1 + bb.w / 2), y: cyy - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic" });
+  cy.stop(true, false);
+  cy.animate({ zoom: z, pan: { x: cx - z * (bb.x1 + bb.w / 2), y: cyy - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic", queue: false });
 }
 function relayout(after) { const t0 = performance.now(); (function f() { cy.resize(); if (performance.now() - t0 < 340) requestAnimationFrame(f); else { cy.resize(); after && after(); } })(); }
 function zoomTo(id) { const n = cy.getElementById(id); if (n.nonempty()) fitSafe(n.closedNeighborhood().filter((e) => e.isNode() && e.hasClass("agent")), 600, 1.4); }
@@ -253,43 +255,74 @@ function applyDim() {
 }
 function spotlight(id) {
   if (!state?.agents[id]) return;
-  spotId = id; focusId = id; markFocus();
+  spotId = id; focusId = id; spotHeadFor = null; markFocus();
   $("#main").classList.add("spot"); $("#main").classList.remove("nopanel");
   $("#tFocus").textContent = "Spotlight"; showTab("transcript");
   relayout(() => { applyDim(); fitSafe(cy.nodes(".agent").filter((n) => partnersOf(id).has(n.id())), 700, 1.6); });
   loadCalls(); clearInterval(callsTimer); callsTimer = setInterval(loadCalls, 1500);
 }
 function exitSpotlight() {
-  spotId = null; clearInterval(callsTimer);
+  spotId = null; spotHeadFor = null; clearInterval(callsTimer);
   $("#main").classList.remove("spot"); $("#tFocus").textContent = "Agent";
   applyDim(); showTab("focus"); renderFocus(); relayout(() => fitSafe());
 }
 async function loadCalls() { if (!dealId || !spotId) return; calls = (await fetch(`/api/deals/${dealId}/calls`).then((r) => r.json()).catch(() => calls)) || []; renderTranscript(); }
-function renderTranscript() {
-  if (!spotId || !state) return;
-  const a = state.agents[spotId]; if (!a) return;
-  const mine = calls.filter((c) => c.agent === spotId).sort((x, y) => x.n - y.n);
-  const secs = (c) => c.t1 ? ((c.t1 - c.t0) / 1000).toFixed(1) + "s" : Math.round((Date.now() - c.t0) / 1000) + "s";
-  const box = $("#transcript"); const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
-  box.innerHTML = `
-    <div class="spothead"><div style="min-width:0"><div class="overline" style="margin-top:0">Spotlight</div><h3 class="ptitle">${esc(a.role)}</h3>
-      <div class="psub">${esc(a.company)} · ${esc(a.platform === "Brainbase" ? "frontier" : "open-weight")} · <span class="mono">${esc(a.label)}</span> · reports to ${esc(a.reportsTo ? state.agents[a.reportsTo]?.role : "no one")}</div></div>
-      <button class="btn btn-ghost" id="exitSpot" type="button" style="margin-left:auto;height:32px">Exit <kbd>Esc</kbd></button></div>
-    <div class="overline">Real model calls · ${mine.length}</div>
-    ${mine.map((c, i) => `
-      <div class="call ${c.status}" data-n="${c.n}">
-        <div class="cm"><span>Call ${i + 1} · ${new Date(c.t0).toLocaleTimeString()} · ${esc(c.model)} · ${secs(c)}</span>
+const callSecs = (c) => c.t1 ? ((c.t1 - c.t0) / 1000).toFixed(1) + "s" : Math.round((Date.now() - c.t0) / 1000) + "s";
+const callSig = (c) => [c.n, c.status, c.t1 || "", c.threadId || "", c.via || "", (c.steps || []).map((st) => st.id + st.status + (st.ms ?? "")).join(","), c.sources?.length || 0, c.check ? (c.check.ok ? 1 : 2) : 0, c.sentTo || "", c.art || "", (c.output || "").length].join("|");
+function cardHTML(c, i) {
+  return `<div class="call ${c.status}" data-n="${c.n}">
+        <div class="cm"><span>Call ${i + 1} · ${new Date(c.t0).toLocaleTimeString()} · ${esc(c.model)} · <span class="secs">${callSecs(c)}</span></span>
           <span>${c.threadId ? "Brainbase thread " + esc(c.threadId.slice(0, 8)) + "…" : c.platform === "Workers AI" ? "Cloudflare Workers AI" : ""}${c.via === "fallback" ? " · fallback model" : ""}</span></div>
         <div class="lbl">Received</div><pre class="recv">${esc(c.input)}</pre>
         <details><summary>Instructions and charter given to the model</summary><pre>${esc(c.system)}</pre></details>
-        ${c.steps?.length ? `<div class="lbl">Research steps · ${c.steps.length}</div><div class="steps">${c.steps.map((st) => `<div class="step ${st.status}"><span class="code">${/search/i.test(st.name) ? "SEARCH" : /fetch|web/i.test(st.name) ? "FETCH" : /read|file|glob|ls/i.test(st.name) ? "READ" : "TOOL"}</span><span class="tt">${esc(st.title)}</span><span class="st">${st.status === "running" ? "running…" : st.ms != null ? (st.ms / 1000).toFixed(1) + "s" : "done"}</span></div>`).join("")}</div>` : ""}
+        ${c.steps?.length ? `<div class="lbl">Research steps · ${c.steps.length}</div><div class="steps">${c.steps.map((st) => `<div class="step ${st.status}" data-id="${esc(st.id)}"><span class="code">${/search/i.test(st.name) ? "SEARCH" : /fetch|web/i.test(st.name) ? "FETCH" : /read|file|glob|ls/i.test(st.name) ? "READ" : "TOOL"}</span><span class="tt">${esc(st.title)}</span><span class="st">${st.status === "running" ? "running…" : st.ms != null ? (st.ms / 1000).toFixed(1) + "s" : "done"}</span></div>`).join("")}</div>` : ""}
         <div class="lbl">Model output</div><pre class="out" data-full="${esc(c.output || "")}">${c.status === "running" ? 'working <span class="caret">▍</span>' : typed.has(c.n) ? esc(c.output || "") : ""}</pre>
         ${c.check ? `<div class="check ${c.check.ok ? "ok" : "bad"}"><span class="ic">${c.check.ok ? "✓" : "✕"}</span><div><div class="ct">${c.check.ok ? "Charter check passed" : "Blocked by charter"}</div><div class="cn">${c.check.notes.map(esc).join(" · ")}</div></div></div>` : ""}
         ${c.sources?.length ? `<div class="lbl">Sources cited</div><ul class="sources">${c.sources.map((x) => `<li><span class="code">${x.type === "web" ? "WEB" : "FILE"}</span> ${/^https?:\/\//.test(x.ref) ? `<a href="${esc(x.ref)}" target="_blank" rel="noopener">${esc(x.ref.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</a>` : `<b class="mono">${esc(x.ref)}</b>`}${x.finding ? ` · ${esc(x.finding)}` : ""}</li>`).join("")}</ul>` : ""}
         ${c.sentTo ? `<div class="sent">→ Sent to <b>${esc(nameOf(c.sentTo))}</b> <span class="code ${c.art === "deny" || (c.check && !c.check.ok) ? "block" : c.art === "payment" ? "money" : ""}">${esc(code(c.art))}</span></div>` : ""}
-      </div>`).join("") || `<div class="empty">No model calls yet. This agent is waiting for its turn in the deal.</div>`}`;
-  $("#exitSpot").onclick = exitSpotlight;
-  box.querySelectorAll("pre.out").forEach((pre) => {
+      </div>`;
+}
+// Cards are updated in place by key: open details, scroll positions and the typewriter survive each poll
+let spotHeadFor = null;
+function renderTranscript() {
+  if (!spotId || !state) return;
+  const a = state.agents[spotId]; if (!a) return;
+  const mine = calls.filter((c) => c.agent === spotId).sort((x, y) => x.n - y.n);
+  const box = $("#transcript"); const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  if (spotHeadFor !== spotId) {
+    spotHeadFor = spotId;
+    box.innerHTML = `
+    <div class="spothead"><div style="min-width:0"><div class="overline" style="margin-top:0">Spotlight</div><h3 class="ptitle">${esc(a.role)}</h3>
+      <div class="psub">${esc(a.company)} · ${esc(a.platform === "Brainbase" ? "frontier" : "open-weight")} · <span class="mono">${esc(a.label)}</span> · reports to ${esc(a.reportsTo ? state.agents[a.reportsTo]?.role : "no one")}</div></div>
+      <button class="btn btn-ghost" id="exitSpot" type="button" style="margin-left:auto;height:32px">Exit <kbd>Esc</kbd></button></div>
+    <div class="overline" id="callCount"></div><div id="callList"></div>`;
+    $("#exitSpot").onclick = exitSpotlight;
+  }
+  $("#callCount").textContent = `Real model calls · ${mine.length}`;
+  const list = $("#callList");
+  if (!mine.length) { if (!list.querySelector(".empty")) list.innerHTML = `<div class="empty">No model calls yet. This agent is waiting for its turn in the deal.</div>`; return; }
+  list.querySelector(":scope > .empty")?.remove();
+  mine.forEach((c, i) => {
+    const sig = callSig(c), el = list.querySelector(`.call[data-n="${c.n}"]`);
+    if (el && el.dataset.sig === sig) { const sp = el.querySelector(".secs"); if (sp) sp.textContent = callSecs(c); return; }
+    const tmp = document.createElement("div"); tmp.innerHTML = cardHTML(c, i);
+    const nu = tmp.firstElementChild; nu.dataset.sig = sig;
+    if (el) {
+      const d0 = el.querySelector("details"), d1 = nu.querySelector("details"); if (d0 && d1) d1.open = d0.open;
+      const oldSteps = new Set([...el.querySelectorAll(".step")].map((x) => x.dataset.id));
+      nu.querySelectorAll(".step").forEach((x) => { if (!oldSteps.has(x.dataset.id)) x.classList.add("new"); });
+      const o0 = el.querySelector("pre.out"), o1 = nu.querySelector("pre.out");
+      if (o0 && o1 && typed.has(c.n) && o0.dataset.full === o1.dataset.full) o1.replaceWith(o0);
+      const scr = ["pre.recv", "pre.out"].map((q) => el.querySelector(q)?.scrollTop || 0);
+      el.replaceWith(nu);
+      ["pre.recv", "pre.out"].forEach((q, k) => { const p = nu.querySelector(q); if (p) p.scrollTop = scr[k]; });
+    } else {
+      nu.classList.add("new"); nu.addEventListener("animationend", () => nu.classList.remove("new"), { once: true });
+      nu.querySelectorAll(".step").forEach((x) => x.classList.add("new"));
+      list.appendChild(nu);
+    }
+  });
+  list.querySelectorAll("pre.out").forEach((pre) => {
     const n = Number(pre.closest(".call").dataset.n), full = pre.dataset.full;
     if (!full || typed.has(n)) return;
     typed.add(n);
@@ -326,7 +359,7 @@ function priceChart(tracks) {
   const pts = tracks.flatMap((t) => t.history || []); if (!pts.length) return `<div class="empty" style="margin-top:8px">No offers yet.</div>`;
   const T = theme(), W = 360, H = 160, P = 28, vals = pts.flatMap((p) => [p.price, p.asked || p.price]).concat([state.limits.budget]);
   const lo = Math.min(...vals) * 0.95, hi = Math.max(...vals) * 1.03, Y = (v) => H - P + 4 - ((v - lo) / (hi - lo)) * (H - P * 1.4);
-  let s = `<svg class="pricechart" viewBox="0 0 ${W} ${H}"><line x1="${P}" x2="${W - 8}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="var(--line-strong)" stroke-dasharray="4 4"/><text x="${W - 10}" y="${Y(state.limits.budget) - 5}" fill="var(--text-3)" font-family="Inter" font-size="12" text-anchor="end">Buyer budget (private)</text>`;
+  let s = `<svg class="pricechart" viewBox="0 0 ${W} ${H}"><line x1="${P}" x2="${W - 8}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="var(--line-strong)" stroke-dasharray="4 4"/><text x="${W - 10}" y="${Y(state.limits.budget) - 5}" fill="var(--text-3)" font-family="Inter" font-size="13.5" text-anchor="end">Buyer budget (private)</text>`;
   tracks.forEach((t, ti) => {
     const hs = (t.history || []).map((h, i) => ({ ...h, i })), n = Math.max(2, hs.length), X = (i) => P + (i * (W - P * 1.8)) / (n - 1);
     const v = hs.filter((h) => h.by === "vendor"), b = hs.filter((h) => h.by === "buyer"), col = ti ? "var(--text-3)" : "var(--text)";
@@ -334,19 +367,22 @@ function priceChart(tracks) {
     if (b.length > 1) s += `<polyline fill="none" stroke="var(--text-3)" stroke-dasharray="3 3" points="${b.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
     v.forEach((h) => { s += `<circle cx="${X(h.i)}" cy="${Y(h.price)}" r="3.5" fill="${col}"/>`; if (h.blocked && h.asked && h.asked !== h.price) s += `<text x="${X(h.i)}" y="${Y(h.asked)}" fill="${T.red}" font-size="14" text-anchor="middle" dominant-baseline="central">✕</text>`; });
     b.forEach((h) => { s += `<rect x="${X(h.i) - 3}" y="${Y(h.price) - 3}" width="6" height="6" fill="var(--text-3)"/>`; });
-    const last = v.at(-1); if (last) s += `<text x="${Math.min(W - 70, X(last.i) + 6)}" y="${Y(last.price) - 7}" fill="${col}" font-family="Inter" font-size="12" font-weight="600">${esc(t.name.split(" ")[0])} $${fmt(last.price / 1000)}K</text>`;
+    const last = v.at(-1), nearEdge = last && X(last.i) > W - 110; if (last) s += `<text x="${nearEdge ? X(last.i) - 6 : X(last.i) + 6}" y="${Y(last.price) - 7}" text-anchor="${nearEdge ? "end" : "start"}" fill="${col}" font-family="Inter" font-size="13.5" font-weight="600">${esc(t.name.split(" ")[0])} $${fmt(last.price / 1000)}K</text>`;
   });
   return s + `</svg><div class="empty" style="font-size:12px;margin-top:6px">● vendor · ■ buyer · <span style="color:var(--red)">✕</span> blocked by the vendor's own charter</div>`;
 }
 function renderLog() {
-  let html = "";
-  for (const e of state.events) {
-    if (e.kind === "stage") { html = `<div class="logstage">${esc(e.text.replace(/^Stage (\d+): /, "Stage $1 · "))}</div>` + html; continue; }
+  const row = (e) => {
     const rel = Math.max(0, Math.round((e.t - state.startedAt) / 1000));
     const cls = e.kind === "block" ? "block" : e.kind === "money" ? "money" : e.kind === "escalate" ? "escalate" : "";
-    html = `<div class="logrow ${cls}"><div class="time">+${String(Math.floor(rel / 60)).padStart(2, "0")}:${String(rel % 60).padStart(2, "0")}</div><div><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span></div><div class="t k-${e.kind}">${esc(e.text)}</div></div></div>` + html;
+    return `<div class="logrow ${cls}"><div class="time">+${String(Math.floor(rel / 60)).padStart(2, "0")}:${String(rel % 60).padStart(2, "0")}</div><div><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span></div><div class="t k-${e.kind}">${esc(e.text)}</div></div></div>`;
+  };
+  const groups = [{ head: null, rows: [] }];
+  for (const e of state.events) {
+    if (e.kind === "stage") { groups.push({ head: e.text.replace(/^Stage (\d+): /, "Stage $1 · "), rows: [] }); continue; }
+    groups.at(-1).rows.push(row(e));
   }
-  $("#log").innerHTML = html;
+  $("#log").innerHTML = groups.reverse().map((g) => (g.head ? `<div class="logstage">${esc(g.head)}</div>` : "") + g.rows.reverse().join("")).join("");
 }
 function showTab(t) {
   $("#tFocus").classList.toggle("active", t === "focus" || t === "transcript"); $("#tLog").classList.toggle("active", t === "log");
@@ -361,7 +397,7 @@ function renderChapter() {
   $("#eyebrow").textContent = `Stage ${i + 1} of ${state.stages.length}`;
   const t = $("#chTitle");
   if (t.dataset.name !== name) { t.dataset.name = name; t.style.opacity = 0; setTimeout(() => { t.textContent = name; t.style.opacity = 1; }, 160); }
-  $("#chapter").classList.toggle("hidden", !!state.done && !takeoverDismissed);
+  $("#chapter").classList.toggle("hidden", !$("#takeover").classList.contains("hidden"));
 }
 function renderCaption() {
   const e = [...state.events].reverse().find((x) => x.kind !== "stage"); if (!e) return;
@@ -373,7 +409,7 @@ function renderCaption() {
 function renderInvoice() {
   const inv = state.invoice, box = $("#invoice"), show = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 12000);
   $("#stage").classList.toggle("has-invoice", !!show);
-  if (!show) { box.classList.add("hidden"); return; }
+  if (!show) { const was = !box.classList.contains("hidden"); box.classList.add("hidden"); if (was) setTimeout(refit, 50); return; }
   const wasHidden = box.classList.contains("hidden"); box.classList.remove("hidden");
   const paid = !!inv.paidAt;
   if (box.dataset.key !== `${inv.number}|${paid}`) {
@@ -385,24 +421,30 @@ function renderInvoice() {
       ${inv.url ? `<a href="${esc(inv.url)}" target="_blank" rel="noopener">Open in Stripe →</a>` : ""}<div class="stamp">PAID</div>`;
     box.classList.toggle("paid", paid);
   }
-  if (wasHidden && !spotId) setTimeout(() => fitSafe(), 50);
+  if (paid) { clearTimeout(invHide); invHide = setTimeout(() => state && renderInvoice(), 12050 - (Date.now() - inv.paidAt)); }
+  if (wasHidden) setTimeout(refit, 50);
 }
+function refit() { if (spotId) fitSafe(cy.nodes(".agent").filter((n) => partnersOf(spotId).has(n.id())), 600, 1.6); else fitSafe(); }
 function renderTakeover() {
   const t = $("#takeover");
   if (!state.done || takeoverDismissed) { t.classList.add("hidden"); return; }
   if (!t.classList.contains("hidden")) return;
-  const secs = Math.max(1, Math.round((state.finishedAt - state.startedAt) / 1000));
+  const pa = state.invoice?.paidAt;
+  if (pa && Date.now() - pa < 3500) { clearTimeout(takeoverTimer); takeoverTimer = setTimeout(() => state && renderTakeover(), 3500 - (Date.now() - pa)); return; }
+  $("#chapter").classList.add("hidden");
+  const fin = state.finishedAt ?? state.events.at(-1)?.t ?? Date.now();
+  const exact = Math.max(1, (fin - state.startedAt) / 1000), secs = Math.round(exact);
   const w = state.winner, closed = isClosed(state) && w;
   t.className = "takeover" + (closed ? "" : " nodeal");
   t.innerHTML = closed ? `<div class="content">
       <div class="eyebrow">Deal closed</div>
       <div class="headline">${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s</div>
       <div class="subline">vs. 134 days for a human team</div>
-      <div class="hero">${fmt(Math.round(134 * 86400 / secs))}× faster</div>
+      <div class="hero">${fmt(Math.round(134 * 86400 / exact))}× faster</div>
       <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
       <div class="actions">${state.tenant ? `<a class="btn btn-primary" href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${state.invoice?.url ? `<a class="btn btn-ghost" href="${esc(state.invoice.url)}" target="_blank" rel="noopener">Stripe invoice →</a>` : ""}<button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`
     : `<div class="content"><div class="eyebrow">No deal</div><div class="headline">No deal</div>
-      <div class="subline">${state.outcome === "stopped" ? "The deal stopped before signature. Every agent stayed inside its charter." : "No vendor fit inside the buyer's charter, so the agents walked away."}</div>
+      <div class="subline">${state.outcome === "stopped" ? "The deal stopped before signature. Every agent stayed inside its charter." : state.outcome === "walked" ? "No vendor fit inside the buyer's charter, so the agents walked away." : "The deal engine hit an error, so nothing was signed or paid."}</div>
       <div class="actions"><button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`;
   $("#viewGraph").onclick = dismissTakeover;
 }
@@ -422,7 +464,8 @@ $("#chips").innerHTML = SHORT.map((s, i) => `<li class="chip" style="--i:${i}"><
 function renderDock() {
   const blocked = document.body.classList.contains("is-blocked");
   const k = race.update(state, blocked);
-  $("#race").classList.toggle("idle", !state); $("#race").classList.toggle("closed", isClosed(state));
+  $("#race").classList.toggle("idle", !state); $("#race").classList.toggle("closed", isClosed(state)); $("#race").classList.toggle("nodeal", !!state?.done && !isClosed(state));
+  $("#k1 .x").style.visibility = k?.speedup ? "" : "hidden";
   if (!state || !k) return;
   $("#k1v").textContent = k.speedup ? fmt(k.speedup) : "—";
   $("#k1").classList.toggle("closed", isClosed(state));
@@ -432,7 +475,7 @@ function renderDock() {
   $("#k5v").textContent = Object.keys(state.agents).length;
   $("#k5s").textContent = `${new Set(Object.values(state.agents).map((a) => a.company)).size} companies`;
   const chips = [...document.querySelectorAll("#chips .chip")];
-  chips.slice(0, 10).forEach((c, i) => { c.classList.toggle("done", !!state.done || i < k.cur); c.classList.toggle("on", !state.done && i === k.cur); });
+  chips.slice(0, 10).forEach((c, i) => { c.classList.toggle("done", i <= k.done); c.classList.toggle("on", !state.done && i === k.cur); });
   chips[10].classList.toggle("on", isClosed(state));
   $("#chips").classList.toggle("closed", isClosed(state));
 }
@@ -450,7 +493,7 @@ function tourPick(stage) {
 function tourTick() {
   if (!tour || !state) return;
   if (state.done) {
-    if (!tour.ending) { tour.ending = true; if (spotId) exitSpotlight(); setTimeout(() => { location.href = "/scale.html?tour=1"; }, 9000); }
+    if (!tour.ending) { tour.ending = true; if (spotId) exitSpotlight(); const t = tour; setTimeout(() => { if (tour === t && t.ending) location.href = "/scale.html?tour=1"; }, 12000); }
     return;
   }
   const want = tourPick(state.stages[state.stage]);
@@ -462,14 +505,16 @@ $("#tourBtn").onclick = startTour;
 
 // ---------- data loop ----------
 async function load() {
-  const s = await fetch(`/api/deals/${dealId}`).then((r) => r.json()).catch(() => null); if (!s) return;
+  const id = dealId;
+  const s = await fetch(`/api/deals/${id}`).then((r) => r.json()).catch(() => null);
+  if (!s || id !== dealId || s.id !== dealId) return;
   state = s;
-  if (builtFor !== s.id) { build(s); seen = 0; }
+  if (builtFor !== s.id) { animTimers.forEach(clearTimeout); animTimers = []; build(s); seen = 0; }
   const fresh = s.events.slice(seen); seen = s.events.length;
   // Events older than a few seconds (reopening a deal) are drawn quietly; only new ones animate
   const quiet = fresh.filter((e) => Date.now() - e.t > 8000), loud = fresh.filter((e) => Date.now() - e.t <= 8000);
   quiet.forEach(quietEvent);
-  loud.forEach((e, i) => setTimeout(() => animateEvent(e), i * 220));
+  loud.forEach((e, i) => animTimers.push(setTimeout(() => animateEvent(e), i * 220)));
   if (follow && !spotId && fresh.length && Date.now() - lastFollow > 2500) { const e = [...fresh].reverse().find((x) => cy.getElementById(x.agent).nonempty()); if (e) { lastFollow = Date.now(); zoomTo(e.agent); } }
   renderStatus(); renderChapter(); renderCaption(); renderFocus(); renderLog(); renderInvoice(); renderTakeover();
   if (spotId) { applyDim(); renderTranscript(); }
@@ -479,13 +524,17 @@ async function load() {
 function poll() { clearInterval(timer); load(); timer = setInterval(load, 1000); }
 function demoKey() { try { const k = new URL(location.href).searchParams.get("key"); if (k) localStorage.setItem("dealroom-key", k); return k || localStorage.getItem("dealroom-key") || ""; } catch { return ""; } }
 async function startDeal() {
+  if (starting) return; starting = true;
+  try { await startDealInner(); } finally { starting = false; }
+}
+async function startDealInner() {
   if (spotId) exitSpotlight();
   let key = demoKey();
   const post = () => fetch("/api/deals", { method:"POST", headers:{ "content-type":"application/json", "x-demo-key": key }, body: JSON.stringify({ budget:Number($("#budget").value), aggressive:$("#aggr").checked, allBrainbase:$("#allbb").checked }) });
   let r = await post();
   if (r.status === 401) { key = prompt("Demo passcode") || ""; try { localStorage.setItem("dealroom-key", key); } catch {} r = await post(); if (r.status === 401) return; }
   dealId = (await r.json()).id; history.replaceState(null, "", "?deal=" + dealId);
-  focusId = null; builtFor = null; calls = []; typed.clear(); takeoverDismissed = false; lastCapKey = "";
+  focusId = null; builtFor = null; calls = []; typed.clear(); takeoverDismissed = false; lastCapKey = ""; spotHeadFor = null; animTimers.forEach(clearTimeout); animTimers = []; clearTimeout(takeoverTimer); clearTimeout(invHide);
   $("#focus").innerHTML = `<div class="empty">Select an agent to see its charter, inbox and outbox. Double-click an agent to spotlight its real model calls.</div>`;
   $("#invoice").classList.add("hidden"); $("#invoice").dataset.key = ""; $("#takeover").classList.add("hidden");
   poll();
@@ -497,8 +546,9 @@ $("#optBtn").onclick = (e) => { e.stopPropagation(); $("#optMenu").classList.tog
 document.addEventListener("click", (e) => { if (!e.target.closest(".options")) $("#optMenu").classList.add("hidden"); });
 function toggleTheme() { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle()); applyPoses(); race.recolor(); if (spotId) renderTranscript(); else renderFocus(); }
 $("#theme").onclick = toggleTheme;
+document.querySelectorAll("header button").forEach((b) => b.addEventListener("click", () => b.blur()));
 document.addEventListener("keydown", (e) => {
-  if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.repeat || e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
   if (k === "d" || k === "D") startTour();
   else if (k === "s" || k === "S") $("#startBtn").click();

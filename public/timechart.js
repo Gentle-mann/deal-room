@@ -13,10 +13,11 @@ const px = (n) => parseInt(css(n), 10) || 0;
 
 export function fmtDuration(sec) {
   if (!isFinite(sec)) return "—";
-  if (sec < 60) return `${Math.round(sec)}s`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ${String(Math.round(sec % 60)).padStart(2, "0")}s`;
+  const s = Math.round(sec);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
   if (sec < DAY) return `${(sec / 3600).toFixed(1)} h`;
-  if (sec < 365 * DAY) return `${Math.round(sec / DAY)} days`;
+  if (sec < 365 * DAY) { const d = Math.round(sec / DAY); return d === 1 ? "1 day" : `${d} days`; }
   return `${(sec / (365 * DAY)).toFixed(1)} years`;
 }
 
@@ -36,8 +37,9 @@ function racePlugin(headEl, mode) {
       const a = chart.chartArea, ctx = chart.ctx, x = chart.scales.x, y = chart.scales.y;
       ctx.save();
       // corner note
-      ctx.font = "500 12px Inter, system-ui, sans-serif"; ctx.fillStyle = css("--text-3"); ctx.textBaseline = "top";
-      ctx.fillText(mode === "deal" ? "Time to close · log scale · human stage split illustrative" : "Time to finish the same messages · log scales", a.left + 8, a.top + 4);
+      ctx.font = "500 12px Inter, system-ui, sans-serif"; ctx.fillStyle = css("--text-3");
+      if (mode === "deal") { ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("Time to close · log scale · human stage split illustrative", a.right - 8, a.bottom - 4); ctx.textAlign = "left"; }
+      else { ctx.textBaseline = "top"; ctx.fillText("Time to finish the same messages · log scales", a.left + 8, a.top + 4); }
       // gap bracket
       if (r.bracket) {
         const { xv, agent, human } = r.bracket;
@@ -55,7 +57,7 @@ function racePlugin(headEl, mode) {
       // end labels in the right margin
       const ex = a.right + 12; ctx.textBaseline = "middle";
       const hy = y.getPixelForValue(r.humanEnd);
-      ctx.fillStyle = css("--chart-human");
+      ctx.fillStyle = css("--text-3");
       ctx.font = "600 12px Inter, system-ui, sans-serif"; ctx.fillText("Humans", ex, hy - 8);
       ctx.font = "500 12px JetBrains Mono, monospace"; ctx.fillText(r.humanLabel, ex, hy + 8);
       const ay = Math.min(a.bottom - 8, Math.max(y.getPixelForValue(r.agentLive), hy + 40));
@@ -125,27 +127,30 @@ export function createDealChart(canvas, headEl) {
       if (state.id !== lastId) { lastId = state.id; lastSpeedup = null; }
       const stageTimes = {};
       for (const e of state.events) if (e.kind === "stage") { const n = e.text.replace(/^Stage \d+: /, ""); if (!(n in stageTimes)) stageTimes[n] = e.t; }
-      const end = state.finishedAt || Date.now(), agent = [];
-      STAGES.forEach((s, i) => {
-        const nextStart = STAGES[i + 1] ? stageTimes[STAGES[i + 1]] : stageTimes["Closed"];
-        if (nextStart) agent.push(Math.max(1, (nextStart - state.startedAt) / 1000));
-        else if (stageTimes[s]) agent.push(Math.max(1, (end - state.startedAt) / 1000));
-      });
-      const cur = agent.length - 1, done = state.done ? STAGES.length - 1 : cur - 1;
+      // A deal can end early (walked, stopped, error): only plot stages that actually started
+      const closed = !!state.done && (state.outcome ? state.outcome === "closed" : !!state.winner && !!state.finishedAt);
+      const end = state.finishedAt || (state.done ? state.events.at(-1)?.t : 0) || Date.now();
+      const starts = STAGES.map((s) => stageTimes[s]), last = starts.reduce((m, t, i) => (t ? i : m), -1), agent = [];
+      for (let i = 0; i <= last; i++) {
+        const next = starts.slice(i + 1).find(Boolean) ?? stageTimes["Closed"] ?? end;
+        agent.push(Math.max(1, (next - state.startedAt) / 1000));
+      }
+      const cur = agent.length - 1, done = state.done ? cur : cur - 1;
       const agentSec = Math.max(1, (end - state.startedAt) / 1000);
       let speedup = null, humanDoneDays = done >= 0 ? cumHuman[done] / DAY : 0;
-      if (state.done) speedup = Math.round((134 * DAY) / agentSec);
-      else if (done >= 1) speedup = Math.round(cumHuman[done] / agent[done]);
+      if (closed) speedup = Math.round((134 * DAY) / agentSec);
+      else if (!state.done && done >= 1) speedup = Math.round(cumHuman[done] / agent[done]);
       if (speedup) lastSpeedup = speedup;
+      if (state.done && !closed) lastSpeedup = null; // no deal, no speedup claim
       chart.data.datasets[1].data = agent;
       chart.$race = {
-        cur: state.done ? -1 : cur, closed: !!state.done, blocked, speedup: lastSpeedup,
+        cur: state.done ? -1 : cur, closed, blocked, speedup: lastSpeedup,
         bracket: done >= 1 && lastSpeedup ? { xv: done, agent: agent[done], human: cumHuman[done] } : null,
         humanEnd: 134 * DAY, humanLabel: "134 days", agentLive: agent[cur] || 1, agentLabel: fmtDuration(agentSec),
         head: cur >= 0 ? { x: cur, y: agent[cur] } : null,
       };
       chart.update("none");
-      return { agentSec, humanDoneDays, speedup: lastSpeedup, cur, done, closed: !!state.done };
+      return { agentSec, humanDoneDays, speedup: lastSpeedup, cur, done, closed };
     },
     recolor() { colorize(chart); chart.update("none"); },
   };

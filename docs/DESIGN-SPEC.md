@@ -172,8 +172,8 @@ ROLES: size/line-height, weight, tracking, color. [1280 values in brackets]
   --shadow-md:0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08); --shadow-lg:0 24px 64px rgba(0,0,0,.16);
   --focus:0 0 0 2px #FFFFFF, 0 0 0 4px #0A0A0A;
   --red:#DC2626; --red-bg:rgba(220,38,38,.08); --red-line:rgba(220,38,38,.45);
-  --green:#16A34A; --green-bg:rgba(22,163,74,.09); --green-line:rgba(22,163,74,.45);
-  --amber:#D97706; --amber-bg:rgba(217,119,6,.10); --amber-line:rgba(217,119,6,.45);
+  --green:#15803D; --green-bg:rgba(21,128,61,.09); --green-line:rgba(21,128,61,.45);
+  --amber:#B45309; --amber-bg:rgba(180,83,9,.10); --amber-line:rgba(180,83,9,.45);
   --on-red:#FFFFFF; --on-status:#FFFFFF;
   --chart-human:#8A8A8A; --chart-agent:#0A0A0A; --chart-grid:#E3E3E3; --chart-band:rgba(0,0,0,.045); --chart-knockout:#F7F7F7;
   --g-frontier:#0A0A0A; --g-open:#8C8C8C; --g-screen:#FFFFFF;
