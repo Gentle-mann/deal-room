@@ -637,8 +637,8 @@ function openSnapshot() {
           <div class="check ok"><span class="ic">✓</span><div><div class="ct">Charter check passed</div><div class="cn">${esc(S.check)}</div></div></div>
           <div class="sent">→ Sent to <b>Acme · Procurement</b> <span class="code">BRIEF</span></div></div>
         <div class="lbl" style="margin-top:16px">What happened next</div>
-        <div class="result"><div class="nums"><div><span>list price</span><b>$${fmt(S.result.list)}</b></div><div><span>final price</span><b>$${fmt(S.result.price)}</b></div><div class="got"><span>discount won</span><b>${Math.round((1 - S.result.price / S.result.list) * 100)}% off</b></div></div>
-          <div class="why">Hit the ${S.result.target}% target exactly. With the 2% early-payment discount, Acme paid $${fmt(S.result.paid)} for year 1: ${((1 - S.result.paid / S.result.list) * 100).toFixed(1)}% off list.</div></div>
+        <div class="result"><div class="nums"><div><span>list price</span><b>$${fmt(S.result.list)}</b></div><div><span>paid for year 1</span><b>$${fmt(S.result.paid)}</b></div><div class="got"><span>discount won</span><b>${((1 - S.result.paid / S.result.list) * 100).toFixed(1)}% off</b></div></div>
+          <div class="why">${Math.round((1 - S.result.price / S.result.list) * 100)}% off the price ($${fmt(S.result.price)}/yr, hitting the ${S.result.target}% target exactly), plus a 2% early-payment discount that Acme's finance agent took on the invoice.</div></div>
         <ul class="impact">${S.impact.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
     </div>
     <div class="snapfoot">Recorded from a real production run: every step above is a real tool call the agent made on Brainbase.</div></div>`;
