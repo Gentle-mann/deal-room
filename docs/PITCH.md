@@ -4,51 +4,49 @@ Structure follows `hackathon-lessons.md`: roughly 25% problem, 50% live demo bui
 
 ## Before you walk up
 
-- Open `https://deal-room.ishaqibrahimm1000.workers.dev/?key=<passcode>` in the demo browser. Dark mode, full screen.
-- **About 90 seconds before you start talking, press "▶ Demo tour".** A deal takes about 4 minutes, so the tour will be in Negotiation when you reach the demo section and at the invoice when you reach the payoff.
+A full live deal now takes about 5 minutes (real Brainbase research, proposals, award and approval), which is longer than the pitch. Use two tabs:
+
+- **Tab 1, "finished":** a deal run 5 to 10 minutes earlier, left on its closed takeover screen (the closing time, the speedup and the paid Stripe invoice). Start it with ▶ Demo tour when you sit down.
+- **Tab 2, "live":** press ▶ Demo tour (key D) about 30 seconds before you start talking, so the Procurement analyst is researching during your demo section.
 - Keep the recorded backup video one click away.
 
 ## Script
 
-**[0:00–0:25] The problem**
+**[0:00–0:25] Problem**
 
-"Buying software at a big company takes 134 days on average. Security review alone adds two to six weeks. Now buyers are sending AI agents to do procurement. Forrester expects one in five B2B sellers to face an agent-led negotiation this year. But the other side of the table is still humans, and analysts say agent-to-agent deals are 2027 at the earliest."
+"Buying software at a big company takes 134 days on average. Security review alone adds two to six weeks. Buyers are starting to send AI agents to do procurement. Forrester expects one in five B2B sellers to face an agent-led negotiation this year. But the other side is still people, and analysts put agent-to-agent deals at 2027 or later."
 
 **[0:25–0:45] What it is**
 
-"Deal Room gives every company a deal orchestrator: one frontier agent commanding its own departments, like procurement, security, legal and finance. Each agent works under a charter: what it can do alone, what it must ask up the chain of command, and what it must prove. Orchestrators from different companies meet here and close the whole deal. No human in the loop."
+"Deal Room gives every company a deal orchestrator: a frontier agent commanding its own departments, like procurement, security, legal and finance. Each agent works under a charter: what it can do alone, what it must ask up the chain of command, and what it must prove. Orchestrators from different companies meet here and close the whole deal. No human in the loop."
 
-**[0:45–2:10] Live demo, with the tour already running**
+**[0:45–1:40] Live, tab 2: an agent's real work (wow 1)**
 
-*[Screen: the chain of command. Acme's tree on the left, two vendors on the right, messages flying.]*
+*[The tour has the Procurement analyst in Spotlight, with research steps streaming in.]*
 
-"This is live, not a video. Eleven real agents. The orchestrators run on Claude through Brainbase, and the departments run on open-weight models on Cloudflare Workers AI. Three companies are negotiating right now."
+"This is live. Acme's procurement analyst runs on Claude through Brainbase, and it is doing real work right now. It searched the web for 2026 SaaS discount benchmarks. It is reading Acme's internal files: past contracts, the procurement policy, pilot usage and the CFO's budget memo."
 
-*[The tour spotlights the vendor's deal desk.]*
+*[When the brief lands:]* "And it made a call: open at 28% off, target 20%, walk away above the budget. Twenty percent matches Acme's own last analytics contract and sits mid-range of this year's market benchmarks. Every number cites a URL or a file."
 
-**Wow 1: an agent's real work.** "This is one agent's actual work. What it received, the charter it runs under, and its real model output. Watch: its model just offered a price below its own floor, and its charter blocked it in code. The model can't overrule the charter."
+"Procurement negotiates from that brief, and the vendors' deal desks run on open-weight models on Cloudflare. If any agent tries to go past its limits, like a price below its own floor or a message outside its channel, code blocks it. The model can't overrule the charter."
 
-*[If the channel block appears in the log:]* "And here Quickdash's deal desk tried to go around procurement straight to Acme's orchestrator. Blocked. Subagents only talk to their counterpart, and only orchestrators can commit the company."
+**[1:40–2:15] Tab 1: the deal closed (wow 2)**
 
-*[The tour moves to Acme's orchestrator at Award, then Approvals.]* "Acme's orchestrator awards the deal. The contract is over Finance's authority, so Finance escalates up the chain of command, and the orchestrator approves within its own limit. That's a real Brainbase thread, and you can see its ID."
+*[Switch to tab 1, on the closed takeover.]*
 
-*[Invoice card appears, then the PAID stamp.]*
+"Here's the deal we started a few minutes ago, run end to end in four minutes, against 134 days. The vendor sent a real Stripe invoice referencing the PO. Acme's finance agent did a three-way match, took the 2% early-payment discount and paid it. The workspace was provisioned on Cloudflare the moment the payment cleared."
 
-**Wow 2: money moves.** "Beacon invoices through Stripe, referencing Acme's purchase order. Acme's finance agent does a three-way match, takes the two percent early-payment discount, and pays. The service is provisioned on Cloudflare the moment the payment clears."
+*[Point at the dock chart.]* "The dashed line is the human benchmark and the solid line is the agents. That gap is the business."
 
-**[2:10–2:35] The payoff and scale**
+**[2:15–2:35] Scale**
 
-*[Closed banner plus the humans-vs-agents chart.]*
+*[Press V for the scale view, then ↑ twice.]*
 
-"Closed in about four minutes. The dashed line is the 134-day human average. That solid line is us."
-
-*[Switch to the scale view and press Grow twice.]*
-
-"And this is where it goes: the same chain of command, grown to thousands of agents across companies. This view is a simulation, but the structure is exactly what you just watched run live."
+"And this is where it goes: the same chain of command at thousands of agents. This view is a simulation, but the structure is exactly what you just watched run live."
 
 **[2:35–3:00] Close**
 
-"Every company is about to have agents that buy and sell. Deal Room is where they meet, with charters that make them safe to trust. Frontier models for judgment, open models for volume, Stripe for the money, Cloudflare for the infrastructure, Brainbase to run and score every agent. Thank you."
+"Every company is about to have agents that buy and sell. Deal Room is where they meet, with charters that make them safe to trust. Frontier models for judgment, open models for volume, Stripe for the money, Cloudflare for the infrastructure, Brainbase to run every agent. Thank you."
 
 ## Q&A prep
 
@@ -64,6 +62,7 @@ Structure follows `hackathon-lessons.md`: roughly 25% problem, 50% live demo bui
   - AI SDRs: prospecting only.
   - Paperclip: an org chart with no real money or infrastructure.
   - Nobody else closes both sides end to end with enforced authority, payment and provisioning.
+- **"How does the analyst decide?"** Live web search plus Acme's own files: past contracts, policy, pilot usage, and the budget memo. It must cite a URL or a file for every number, and code caps its walk-away at the budget whatever it recommends.
 - **"What if the model hallucinates?"** Then the charter blocks it. You saw it happen live: the offer below the floor, the out-of-channel message, the fraudulent bank-detail change.
 - **"Why two model tiers?"** A frontier model handles the few judgment calls that bind the company; open-weight models handle the high-volume department work. It's cheaper and faster, and it's how an enterprise would actually run this.
 

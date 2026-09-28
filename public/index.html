@@ -205,6 +205,15 @@ function animateEvent(e) {
   if (e.agent && to) sendPacket(cy, e.agent, to, { label: code(e.art), cls: bad ? "bad" : e.kind === "money" ? "money" : "" });
   else if (e.kind === "block" && e.agent && cy.getElementById(e.agent).data("boss")) sendPacket(cy, e.agent, cy.getElementById(e.agent).data("boss"), { label: "BLOCK", cls: "bad" });
 }
+function quietEvent(e) {
+  if (e.art === "channel" && e.pairs) for (const [x, y] of e.pairs) { const id = `c:${x}>${y}`; if (cy.getElementById(id).empty() && cy.getElementById(x).nonempty() && cy.getElementById(y).nonempty()) cy.add({ group:"edges", data:{ id, source:x, target:y }, classes:"chan" }); }
+  const to = e.to && e.to !== e.agent && cy.getElementById(e.to).nonempty() ? e.to : null;
+  if (e.agent && to && cy.getElementById(e.agent).nonempty()) {
+    const id = `m:${e.agent}>${to}`; let ed = cy.getElementById(id);
+    if (ed.empty()) ed = cy.add({ group:"edges", data:{ id, source:e.agent, target:to, w:1 }, classes:"msg" });
+    ed.data("w", Math.min(12, (ed.data("w") || 1) + 1));
+  }
+}
 function applyPoses() {
   if (!state) return;
   frame++;
@@ -457,7 +466,10 @@ async function load() {
   state = s;
   if (builtFor !== s.id) { build(s); seen = 0; }
   const fresh = s.events.slice(seen); seen = s.events.length;
-  fresh.forEach((e, i) => setTimeout(() => animateEvent(e), i * 220));
+  // Events older than a few seconds (reopening a deal) are drawn quietly; only new ones animate
+  const quiet = fresh.filter((e) => Date.now() - e.t > 8000), loud = fresh.filter((e) => Date.now() - e.t <= 8000);
+  quiet.forEach(quietEvent);
+  loud.forEach((e, i) => setTimeout(() => animateEvent(e), i * 220));
   if (follow && !spotId && fresh.length && Date.now() - lastFollow > 2500) { const e = [...fresh].reverse().find((x) => cy.getElementById(x.agent).nonempty()); if (e) { lastFollow = Date.now(); zoomTo(e.agent); } }
   renderStatus(); renderChapter(); renderCaption(); renderFocus(); renderLog(); renderInvoice(); renderTakeover();
   if (spotId) { applyDim(); renderTranscript(); }

@@ -45,7 +45,7 @@ function figure(tone, pose) {
   } else if (pose === "done") {
     extra = `<circle cx="34" cy="5" r="4" fill="${T.green}"/><path d="M32 5 l1.5 1.5 l2.8 -3" stroke="${T.onStatus}" stroke-width="1.3" fill="none"/>`;
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 60">${legs}${torso}${arms}${head}${extra}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120" viewBox="0 0 40 60" preserveAspectRatio="xMidYMid meet">${legs}${torso}${arms}${head}${extra}</svg>`;
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 }
 const FIG = {};
@@ -58,7 +58,7 @@ export function buildStyle(extra = []) {
     { selector: "node.company", style: { "background-color":T.company, "border-width":1.5, "border-color":T.companyBorder, "shape":"round-rectangle", "corner-radius":16, "padding":40,
       "label":"data(label)", "text-valign":"top", "text-halign":"center", "text-margin-y":-12, "color":T.strong, "font-family":INTER, "font-size":20, "font-weight":600, "min-zoomed-font-size":8 } },
     { selector: "node.agent", style: { "shape":"rectangle", "width":36, "height":54, "background-opacity":0, "border-width":0,
-      "background-image":"data(img)", "background-fit":"contain", "background-clip":"node", "background-image-smoothing":"yes",
+      "background-image":"data(img)", "background-fit":"none", "background-width":"100%", "background-height":"100%", "background-position-x":"50%", "background-position-y":"50%", "background-clip":"node", "background-image-smoothing":"yes", "background-image-crossorigin":"null",
       "label":"data(label)", "text-wrap":"wrap", "text-max-width":140, "text-valign":"bottom", "text-margin-y":8,
       "color":T.text, "font-family":INTER, "font-size":12, "font-weight":500, "line-height":1.3, "min-zoomed-font-size":8 } },
     { selector: "node.agent[level = 0]", style: { "width":48, "height":72, "font-size":14, "font-weight":600, "color":T.strong } },
