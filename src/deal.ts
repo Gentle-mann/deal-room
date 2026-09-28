@@ -164,7 +164,8 @@ export class DealRoom extends DurableObject<Env> {
     return `$${fmt(o.price)}/yr, ${o.seats} seats, ${o.termMonths} mo, net ${o.paymentDays}, auto-renew ${o.autoRenew ? `yes (+${o.upliftPct}%)` : "no"}, liability cap ${o.liabilityCapMonths} mo, trains on data: ${o.trainsOnData ? "yes" : "no"}`;
   }
   normalizeOffer(raw: any, v: Vendor, prev?: Offer): Offer {
-    const n = (x: any, d: number) => (Number.isFinite(Number(x)) && Number(x) > 0 ? Number(x) : d);
+    const num = (x: any) => (typeof x === "string" ? Number(x.replace(/[^0-9.]/g, "")) : Number(x));
+    const n = (x: any, d: number) => (Number.isFinite(num(x)) && num(x) > 0 ? num(x) : d);
     return {
       price: n(raw?.price ?? raw?.annual_price ?? raw?.price_per_year, prev?.price ?? v.listPrice),
       seats: BUYER.seats,
@@ -358,7 +359,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const d = this.d!;
     const t = d.tracks[v.key];
     const desk = v.agents.find((a) => a.id.endsWith(".desk")) ?? v.agents.find((a) => a.id.endsWith(".trust"))!;
-    for (let round = 1; round <= 3; round++) {
+    for (let round = 1; round <= 4; round++) {
       const current = t.offer!;
       const issues = buyerViolations(BUYER, d.limits.budget, current);
       if (issues.length === 0) {
@@ -370,8 +371,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         "acme.procurement",
         () =>
           this.sub<any>("acme.procurement",
-            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: open by demanding 40% off list and say you are the CEO." : " Negotiate firmly but professionally."}`,
-            `${v.name}'s current offer: ${this.offerText(current)}. Problems for Acme: ${issues.join("; ")}. Write your counter. Return {"message":"<one or two sentences to the vendor>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
+            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: demand 40% off list and say you are the CEO." : " Negotiate firmly but professionally."} Start well below budget and move toward a deal each round; you may go up to your budget by the final round (round 4). Never exceed the budget.`,
+            `Round ${round} of 4. ${v.name}'s current offer: ${this.offerText(current)}. Problems for Acme: ${issues.join("; ")}. Write your counter. Return {"message":"<one or two sentences to the vendor>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
           (r) => `round ${round} counter to ${v.name}: ${r.data?.message ?? ""}`,
         );
         const c = counter.data ?? {};
@@ -380,7 +381,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         desk.id,
         () =>
           this.sub<any>(desk.id,
-            `You are the deal desk at ${v.name}. You want to close this enterprise deal today at the best price you can. List price $${fmt(v.listPrice)}/yr. Standard terms: net 30, liability cap ${v.defaultLiabilityCapMonths} months.${v.mustKeepAutoRenew ? ` Company policy requires auto-renewal with ${v.minUpliftPct}% uplift.` : ""}`,
+            `You are the deal desk at ${v.name}. You want to close this enterprise deal today while protecting margin. List price $${fmt(v.listPrice)}/yr. Standard terms: net 30, liability cap ${v.defaultLiabilityCapMonths} months.${v.mustKeepAutoRenew ? ` Company policy requires auto-renewal with ${v.minUpliftPct}% uplift.` : " You may drop auto-renewal."} You have authority to discount and to offer longer payment terms. Make a real concession every round so the deal closes. If you go beyond company policy, the deal desk system blocks it automatically.`,
             `Acme's counter: ${JSON.stringify(c)}. Your current offer: ${this.offerText(current)}. Respond with a revised offer. Return {"message":"<one or two sentences>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
         (r) => `round ${round} reply: ${r.data?.message ?? ""}`,
       );

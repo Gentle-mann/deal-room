@@ -36,6 +36,15 @@ export default {
           return json(await stub(env, p[2]).decide(!!approve));
         }
       }
+      // Dev-only: raw Workers AI output and latency for a model
+      if (p[1] === "debug-ai" && url.hostname === "localhost") {
+        const model = url.searchParams.get("model")!;
+        const t0 = Date.now();
+        const raw = await env.AI.run(model, { messages: [
+          { role: "system", content: "You are the deal desk at a SaaS vendor. List price $150,000/yr. Respond with a single JSON object only." },
+          { role: "user", content: 'Buyer asks $115,000/yr net 60. Reply {"message":"...","price":<number>,"paymentDays":<n>}' } ], max_tokens: 600 });
+        return json({ model, ms: Date.now() - t0, raw });
+      }
       return json({ error: "not found" }, 404);
     }
 

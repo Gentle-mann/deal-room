@@ -90,7 +90,7 @@ export const VENDORS: Vendor[] = [
     name: "Beacon Analytics",
     pitch: "Premium enterprise analytics with EU hosting",
     listPrice: 150_000,
-    floor: 112_000,
+    floor: 106_000,
     maxDiscountPct: 25,
     maxPaymentDays: 60,
     mustKeepAutoRenew: false,
@@ -111,8 +111,8 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "First Republic Trust ****4417",
     agents: [
       { id: "beacon.orchestrator", role: "Orchestrator & pricing authority", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "beacon.trust", role: "Trust & legal", platform: "Workers AI", model: "@cf/qwen/qwen3-30b-a3b-fp8", label: "Qwen3 30B (open)" },
-      { id: "beacon.desk", role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/qwen/qwen3-30b-a3b-fp8", label: "Qwen3 30B (open)" },
+      { id: "beacon.trust", role: "Trust & legal", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
+      { id: "beacon.desk", role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "Pacific Commerce Bank ****2290",
     agents: [
       { id: "quickdash.orchestrator", role: "Orchestrator & sales", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "quickdash.trust", role: "Trust, legal & deal desk", platform: "Workers AI", model: "@cf/google/gemma-4-26b-a4b-it", label: "Gemma 4 26B (open)" },
+      { id: "quickdash.trust", role: "Trust, legal & deal desk", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
     ],
   },
 ];
@@ -148,6 +148,10 @@ export const VENDORS: Vendor[] = [
 export function vendorCharter(v: Vendor, o: Offer): { offer: Offer; blocks: string[] } {
   const blocks: string[] = [];
   const out = { ...o };
+  if (out.price > v.listPrice) {
+    blocks.push(`price $${fmt(o.price)} is above ${v.name}'s published list price, capped at $${fmt(v.listPrice)}`);
+    out.price = v.listPrice;
+  }
   if (out.price < v.floor) {
     blocks.push(`price $${fmt(o.price)} is below ${v.name}'s floor $${fmt(v.floor)}, reset to floor`);
     out.price = v.floor;

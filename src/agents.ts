@@ -29,9 +29,9 @@ export async function wai(env: AiEnv, model: string, system: string, user: strin
   if (typeof res === "string") return res;
   if (typeof res?.response === "string") return res.response;
   if (res?.response && typeof res.response === "object") return JSON.stringify(res.response);
-  const c = res?.choices?.[0]?.message?.content;
-  if (typeof c === "string") return c;
-  return JSON.stringify(res ?? "");
+  const msg = res?.choices?.[0]?.message;
+  if (typeof msg?.content === "string") return msg.content;
+  return ""; // reasoning-only or empty reply: treat as no answer rather than parsing the envelope
 }
 
 export async function waiJson<T = any>(env: AiEnv, model: string, system: string, user: string): Promise<{ data: T | null; raw: string }> {
