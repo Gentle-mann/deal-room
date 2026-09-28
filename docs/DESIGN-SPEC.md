@@ -70,7 +70,7 @@ SCALE VIEW (scale.html), same shell with no side panel:
   - Chapter heading top-left (eyebrow "Simulation · same chain of command" plus the tour pill; title "4,507 agents · 7 companies", live).
   - Footnote bottom-left, max-width 520, 12/16 text-3, on --overlay with radius 8 and padding 8 12. Hidden when width ≤1360.
 - #cy inset 0. The scale fit uses the same fitSafe with safe area t 92, r 32, b 48, l 32.
-- Header left: wordmark "Deal Room", then "/ Scale" (text-3), then the SIMULATION badge.
+- Header left: wordmark "Deal Room", then "/ Scale" (text-3). No badge; the chapter eyebrow says "Simulation".
 - Header right:
   - Segmented "Depth" control: L1 | L2 | L3 | L4.
   - "+ Vendor" (ghost).

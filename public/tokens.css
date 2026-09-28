@@ -86,7 +86,6 @@ kbd { font: 500 12px/16px "JetBrains Mono", monospace; min-width: 20px; height: 
 body.is-blocked .pill .dot { background: var(--red); }
 @keyframes pulse { from { box-shadow: 0 0 0 0 var(--amber-line); } to { box-shadow: 0 0 0 10px transparent; } }
 .tourpill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--text); color: var(--bg); font: 600 12px/16px Inter, sans-serif; }
-.simbadge { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; border: 1.5px dashed var(--text-2); color: var(--text); font: 600 12px/16px "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .08em; }
 .code { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--text-2); font: 700 12px/16px "JetBrains Mono", monospace; letter-spacing: .04em; white-space: nowrap; }
 .code.block { color: var(--red); border-color: var(--red-line); background: var(--red-bg); }
 .code.money { color: var(--green); border-color: var(--green-line); background: var(--green-bg); }
