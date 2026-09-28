@@ -1,28 +1,30 @@
 // Shared graph module: pictogram figures, chain-of-command layouts, themed Cytoscape styles, message packets.
 // Used by the live deal view (index.html) and the scale simulation (scale.html).
 
-export const RED = "#ff4d4f", GREEN = "#2fbf71", AMBER = "#e0a800";
-export const ART = { rfp:"📨", proposal:"📄", questionnaire:"🔒", grade:"✔", counter:"💬", offer:"💬", redline:"✍", award:"🏆", debrief:"✉",
-  escalate:"⤴", approve:"✅", deny:"⛔", signature:"✒", fraud:"☠", po:"📋", invoice:"🧾", payment:"💳", provision:"🚀", eliminate:"✕", block:"⛔",
-  task:"▸", result:"◂", channel:"🔗" };
+// Packet and chip codes: short mono labels instead of emoji
+export const ART = { rfp:"RFP", proposal:"PROP", questionnaire:"SECQ", grade:"GRADE", counter:"CNTR", offer:"OFFER", redline:"REDLN", award:"AWARD", debrief:"DEBRF",
+  escalate:"ESC", approve:"OK", deny:"DENY", signature:"SIGN", fraud:"FRAUD", po:"PO", invoice:"INV", payment:"PAY", provision:"PROV", eliminate:"ELIM", block:"BLOCK",
+  task:"TASK", result:"RSLT", channel:"LINK" };
+export const code = (art) => ART[art] || "MSG";
 
-// ---------- themes ----------
-export const THEMES = {
-  dark:  { frontier:"#f4f4f4", open:"#9a9a9a", screen:"#000000", text:"#dedede", strong:"#f2f2f2", company:"#060606", companyBorder:"#242424",
-           reports:"#2b2b2b", msg:"#3a3a3a", flash:"#ffffff", packetBg:"#000000", packetFg:"#ffffff", select:"#ffffff", faint:"#5c5c5c" },
-  light: { frontier:"#111111", open:"#8c8c8c", screen:"#ffffff", text:"#262626", strong:"#0d0d0d", company:"#fafafa", companyBorder:"#dddddd",
-           reports:"#cdcdcd", msg:"#b8b8b8", flash:"#000000", packetBg:"#ffffff", packetFg:"#000000", select:"#000000", faint:"#9a9a9a" },
-};
-let T = THEMES.dark, themeName = "dark";
+// ---------- theme: every color comes from tokens.css ----------
+const V = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function readTheme() {
+  return { frontier:V("--g-frontier"), open:V("--g-open"), screen:V("--g-screen"), text:V("--g-label"), strong:V("--g-company-label"),
+    company:V("--g-company"), companyBorder:V("--g-company-line"), reports:V("--g-reports"), msg:V("--g-msg"), chan:V("--g-chan"), flash:V("--g-flash"),
+    packetBg:V("--g-packet"), packetFg:V("--g-packet-text"), select:V("--g-select"), dot:V("--g-dot"),
+    red:V("--red"), green:V("--green"), amber:V("--amber"), onRed:V("--on-red"), onStatus:V("--on-status") };
+}
+let T = {}, themeName = "dark";
 export const theme = () => T;
 export function getTheme() {
   try { return localStorage.getItem("dealroom-theme") === "light" ? "light" : "dark"; } catch { return "dark"; }
 }
 export function applyTheme(name) {
-  themeName = THEMES[name] ? name : "dark";
-  T = THEMES[themeName];
+  themeName = name === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = themeName;
   try { localStorage.setItem("dealroom-theme", themeName); } catch {}
+  T = readTheme();
   return themeName;
 }
 
@@ -36,12 +38,12 @@ function figure(tone, pose) {
   if (pose === "work1" || pose === "work2") {
     const dy = pose === "work1" ? 0 : 1.6;
     arms = `<rect x="7" y="17" width="5" height="12" rx="2.4" fill="${c}"/><rect x="28" y="17" width="5" height="12" rx="2.4" fill="${c}"/>`;
-    extra = `<rect x="9" y="${24 + dy}" width="22" height="13" rx="1.8" fill="${T.screen}" stroke="${AMBER}" stroke-width="1.6"/><rect x="12" y="${27 + dy}" width="${pose === "work1" ? 12 : 16}" height="1.8" fill="${AMBER}"/><rect x="12" y="${31 + dy}" width="${pose === "work1" ? 9 : 6}" height="1.8" fill="${AMBER}"/>`;
+    extra = `<rect x="9" y="${24 + dy}" width="22" height="13" rx="1.8" fill="${T.screen}" stroke="${T.amber}" stroke-width="1.6"/><rect x="12" y="${27 + dy}" width="${pose === "work1" ? 12 : 16}" height="1.8" fill="${T.amber}"/><rect x="12" y="${31 + dy}" width="${pose === "work1" ? 9 : 6}" height="1.8" fill="${T.amber}"/>`;
   } else if (pose === "block") {
     arms = `<rect x="8" y="22" width="24" height="4.6" rx="2.2" fill="${c}" transform="rotate(18 20 24)"/><rect x="8" y="22" width="24" height="4.6" rx="2.2" fill="${c}" transform="rotate(-18 20 24)"/>`;
-    extra = `<circle cx="34" cy="5" r="4" fill="${RED}"/><rect x="31.8" y="4.2" width="4.4" height="1.6" fill="#fff"/>`;
+    extra = `<circle cx="34" cy="5" r="4" fill="${T.red}"/><rect x="31.8" y="4.2" width="4.4" height="1.6" fill="${T.onRed}"/>`;
   } else if (pose === "done") {
-    extra = `<circle cx="34" cy="5" r="4" fill="${GREEN}"/><path d="M32 5 l1.5 1.5 l2.8 -3" stroke="#fff" stroke-width="1.3" fill="none"/>`;
+    extra = `<circle cx="34" cy="5" r="4" fill="${T.green}"/><path d="M32 5 l1.5 1.5 l2.8 -3" stroke="${T.onStatus}" stroke-width="1.3" fill="none"/>`;
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 60">${legs}${torso}${arms}${head}${extra}</svg>`;
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
@@ -51,31 +53,33 @@ export const fig = (tone, pose) => (FIG[`${themeName}:${tone}:${pose}`] ||= figu
 
 // ---------- Cytoscape styles for the current theme ----------
 export function buildStyle(extra = []) {
+  const INTER = "Inter, system-ui, sans-serif", MONO = "JetBrains Mono, ui-monospace, monospace";
   return [
-    { selector: "node.company", style: { "background-color":T.company, "border-width":1, "border-color":T.companyBorder, "shape":"round-rectangle",
-      "label":"data(label)", "text-valign":"top", "text-halign":"center", "text-margin-y":-10, "color":T.strong, "font-size":16, "font-weight":600, "padding":36 } },
-    { selector: "node.agent", style: { "shape":"rectangle", "width":34, "height":51, "background-opacity":0, "border-width":0,
+    { selector: "node.company", style: { "background-color":T.company, "border-width":1.5, "border-color":T.companyBorder, "shape":"round-rectangle", "corner-radius":16, "padding":40,
+      "label":"data(label)", "text-valign":"top", "text-halign":"center", "text-margin-y":-12, "color":T.strong, "font-family":INTER, "font-size":20, "font-weight":600, "min-zoomed-font-size":8 } },
+    { selector: "node.agent", style: { "shape":"rectangle", "width":36, "height":54, "background-opacity":0, "border-width":0,
       "background-image":"data(img)", "background-fit":"contain", "background-clip":"node", "background-image-smoothing":"yes",
-      "label":"data(label)", "text-wrap":"wrap", "text-max-width":150, "text-valign":"bottom", "text-margin-y":7,
-      "color":T.text, "font-size":10.5, "line-height":1.3, "min-zoomed-font-size":7 } },
-    { selector: "node.agent[level = 0]", style: { "width":44, "height":66, "font-size":12, "font-weight":600 } },
+      "label":"data(label)", "text-wrap":"wrap", "text-max-width":140, "text-valign":"bottom", "text-margin-y":8,
+      "color":T.text, "font-family":INTER, "font-size":12, "font-weight":500, "line-height":1.3, "min-zoomed-font-size":8 } },
+    { selector: "node.agent[level = 0]", style: { "width":48, "height":72, "font-size":14, "font-weight":600, "color":T.strong } },
     { selector: "node:active", style: { "overlay-opacity":0 } },
-    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.10, "underlay-padding":6, "underlay-shape":"round-rectangle" } },
-    { selector: "node.packet", style: { "width":20, "height":20, "background-color":T.packetBg, "border-width":1, "border-color":T.packetFg, "label":"data(label)",
-      "text-valign":"center", "text-halign":"center", "font-size":11, "color":T.packetFg, "z-index":99, "events":"no" } },
-    { selector: "node.packet.dot", style: { "width":6, "height":6, "label":"", "background-color":T.packetFg, "border-width":0 } },
-    { selector: "node.packet.bad", style: { "border-color":RED } },
-    { selector: "node.packet.dot.bad", style: { "background-color":RED } },
-    { selector: "node.packet.money", style: { "border-color":GREEN } },
-    { selector: "edge.reports", style: { "curve-style":"taxi", "taxi-direction":"horizontal", "taxi-turn":"50%", "width":1.4, "line-color":T.reports, "events":"no" } },
-    { selector: "edge.msg", style: { "curve-style":"unbundled-bezier", "control-point-distances":[-40], "control-point-weights":[0.5], "width":"mapData(w, 1, 12, 1, 4)", "line-color":T.msg,
-      "target-arrow-shape":"triangle", "target-arrow-color":T.msg, "arrow-scale":0.7, "line-style":"dashed", "line-dash-pattern":[6, 4], "events":"no" } },
-    { selector: "edge.flash", style: { "line-color":T.flash, "target-arrow-color":T.flash, "line-style":"solid" } },
-    { selector: "edge.flash.bad", style: { "line-color":RED, "target-arrow-color":RED } },
-    { selector: "edge.flash.money", style: { "line-color":GREEN, "target-arrow-color":GREEN } },
-    { selector: "edge.chan", style: { "curve-style":"unbundled-bezier", "control-point-distances":[30], "control-point-weights":[0.5], "width":1, "line-color":T.reports, "line-style":"dotted", "events":"no" } },
-    { selector: ".dim", style: { "opacity":0.1 } },
-    { selector: "node.agent.spot", style: { "underlay-color":AMBER, "underlay-opacity":0.22, "underlay-padding":14, "underlay-shape":"round-rectangle" } },
+    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.10, "underlay-padding":8, "underlay-shape":"round-rectangle" } },
+    { selector: "node.agent.spot", style: { "underlay-color":T.select, "underlay-opacity":0.16, "underlay-padding":14, "underlay-shape":"round-rectangle", "font-weight":700 } },
+    { selector: "node.packet", style: { "shape":"round-rectangle", "height":20, "width":"data(pw)", "background-color":T.packetBg, "border-width":0, "label":"data(label)",
+      "font-family":MONO, "font-size":11, "font-weight":700, "color":T.packetFg, "text-valign":"center", "text-halign":"center", "z-index":99, "events":"no" } },
+    { selector: "node.packet.bad", style: { "background-color":T.red, "color":T.onRed } },
+    { selector: "node.packet.money", style: { "background-color":T.green, "color":T.onStatus } },
+    { selector: "node.packet.dot", style: { "shape":"ellipse", "width":6, "height":6, "label":"", "background-color":T.dot } },
+    { selector: "node.packet.dot.bad", style: { "background-color":T.red } },
+    { selector: "edge.reports", style: { "curve-style":"taxi", "taxi-direction":"horizontal", "taxi-turn":"50%", "width":1.5, "line-color":T.reports, "events":"no" } },
+    { selector: "edge.msg", style: { "curve-style":"unbundled-bezier", "control-point-distances":[-40], "control-point-weights":[0.5], "width":"mapData(w, 1, 12, 1.5, 4)", "line-color":T.msg,
+      "line-style":"dashed", "line-dash-pattern":[6, 4], "target-arrow-shape":"triangle", "target-arrow-color":T.msg, "arrow-scale":0.8, "events":"no" } },
+    { selector: "edge.flash", style: { "line-color":T.flash, "target-arrow-color":T.flash, "line-style":"solid", "width":3 } },
+    { selector: "edge.flash.bad", style: { "line-color":T.red, "target-arrow-color":T.red } },
+    { selector: "edge.flash.money", style: { "line-color":T.green, "target-arrow-color":T.green } },
+    { selector: "edge.chan", style: { "curve-style":"unbundled-bezier", "control-point-distances":[30], "control-point-weights":[0.5], "width":1.5, "line-color":T.chan, "line-style":"dotted", "line-dash-pattern":[2, 4], "events":"no" } },
+    { selector: ".dim", style: { "opacity":0.12 } },
+    { selector: "edge.dim", style: { "opacity":0.08 } },
     ...extra,
   ];
 }
@@ -89,7 +93,7 @@ function forest(members) {
   return { kids, roots };
 }
 export function treeLayout(companies, opt = {}) {
-  const LEVEL = opt.levelGap ?? 210, LEAF = opt.leafGap ?? 112, CENTER = opt.center ?? 200, STACK = opt.stackGap ?? 230;
+  const LEVEL = opt.levelGap ?? 210, LEAF = opt.leafGap ?? 100, CENTER = opt.center ?? 200, STACK = opt.stackGap ?? 150;
   const pos = {}, levels = {};
   const layoutOne = (c, dir) => {
     const { kids, roots } = forest(c.members);
@@ -184,6 +188,7 @@ export function sendPacket(cy, fromId, toId, opts = {}) {
     e.addClass("flash " + cls); setTimeout(() => e.removeClass("flash bad money"), opts.flashMs ?? 900);
   }
   const pid = "p" + Math.random().toString(36).slice(2);
-  const p = cy.add({ group:"nodes", data:{ id:pid, label: opts.label || "•" }, position:{ ...from.position() }, classes:"packet " + (opts.dot ? "dot " : "") + cls });
+  const label = opts.label || "MSG";
+  const p = cy.add({ group:"nodes", data:{ id:pid, label, pw: 14 + label.length * 7 }, position:{ ...from.position() }, classes:"packet " + (opts.dot ? "dot " : "") + cls });
   p.animate({ position:{ ...to.position() } }, { duration: opts.duration ?? 850, easing:"ease-in-out-cubic", complete: () => p.remove() });
 }

@@ -4,60 +4,75 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Deal Room · Scale</title>
+<script>try{if(localStorage.getItem("dealroom-theme")==="light")document.documentElement.dataset.theme="light";}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.34.3/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-:root { --bg:#000; --line:#1f1f1f; --line2:#2c2c2c; --text:#f2f2f2; --muted:#8a8a8a; --note:rgba(0,0,0,.8); }
-:root[data-theme="light"] { --bg:#fff; --line:#e8e8e8; --line2:#d6d6d6; --text:#111; --muted:#666; --note:rgba(255,255,255,.92); }
-* { box-sizing:border-box; }
-html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-body { display:grid; grid-template-rows:auto 1fr; }
-header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-header b { font-size:16px; } .sim { font-size:10.5px; letter-spacing:.8px; border:1px solid #f5b700; color:#f5b700; padding:3px 8px; border-radius:4px; }
-button { background:var(--text); color:var(--bg); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
-button.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
-a { color:var(--text); font-size:12.5px; }
-.stats { margin-left:auto; display:flex; gap:18px; font-variant-numeric:tabular-nums; }
-.stats div { text-align:right; } .stats b { font-size:20px; display:block; } .stats span { color:var(--muted); font-size:11px; }
-.stage { position:relative; } #cy { position:absolute; inset:0; }
-.note { position:absolute; left:16px; bottom:14px; color:var(--muted); font-size:12px; max-width:640px; background:var(--note); padding:8px 10px; border:1px solid var(--line2); border-radius:8px; }
+.left { display:grid; grid-template-rows:minmax(0,1fr) 288px; min-width:0; min-height:0; }
+.scale-race { display:grid; grid-template-rows:172px; }
+.scale-race .race-plot { height:172px; }
+.foot { position:absolute; left:24px; bottom:16px; max-width:520px; z-index:5; font:400 12px/16px Inter,sans-serif; color:var(--text-3); background:var(--overlay); border-radius:8px; padding:8px 12px; pointer-events:none; }
+.sub3 { font:500 18px/24px Inter,sans-serif; color:var(--text-3); }
+@media (max-width: 1360px), (max-height: 780px) {
+  .left { grid-template-rows:minmax(0,1fr) 232px; } .scale-race { grid-template-rows:140px; } .scale-race .race-plot { height:140px; } .foot { display:none; }
+}
 </style>
 </head>
 <body>
 <header>
-  <b>Deal Room · scale view</b><span class="sim">SIMULATION</span>
-  <button id="grow">Grow one level</button>
-  <button class="ghost" id="shrink">Back one level</button>
-  <button class="ghost" id="vendors">+ vendor</button>
-  <button class="ghost" id="pause">Pause traffic</button>
-  <button class="ghost" id="theme" type="button" title="Toggle light / dark">◐</button>
-  <a href="/">← live deal</a>
-  <div class="stats">
-    <div><b id="nAgents">0</b><span>agents</span></div>
-    <div><b id="nCompanies">0</b><span>companies</span></div>
-    <div><b id="nMsgs">0</b><span>messages</span></div>
-    <div><b id="depth">L1</b><span>chain of command</span></div>
+  <span class="mark"></span><span class="wordmark">Deal Room</span><span class="sub3">/ Scale</span><span class="simbadge">Simulation</span>
+  <div class="hright">
+    <div class="seg" id="depthSeg">
+      <button type="button" data-d="1" title="Departments">L1</button><button type="button" data-d="2" title="Teams">L2</button><button type="button" data-d="3" title="Specialists">L3</button><button type="button" data-d="4" title="Sub-specialists">L4</button>
+    </div>
+    <button class="btn btn-ghost" id="addVendor" type="button">+ Vendor <kbd>=</kbd></button>
+    <button class="btn btn-ghost" id="pause" type="button">Pause <kbd>Space</kbd></button>
+    <button class="btn btn-ghost btn-icon" id="theme" type="button" title="Theme (T)">◐</button>
+    <a class="btn btn-ghost" href="/">← Live deal <kbd>V</kbd></a>
   </div>
 </header>
-<div class="stage">
-  <div id="cy"></div>
-  <div class="note">Synthetic agents showing how the same chain of command scales: orchestrator → departments → teams → specialists. The live deal runs 11 real agents; this view shows the architecture at thousands.</div>
+<div class="left">
+  <div class="stage" id="stage">
+    <div id="cy"></div>
+    <div class="chapter">
+      <div class="row1"><span class="tourpill hidden" id="tourPill">▶ Demo tour</span><span class="eyebrow">Simulation · same chain of command</span></div>
+      <div class="title" id="chTitle">—</div>
+    </div>
+    <div class="foot">Synthetic agents showing how the chain of command scales: orchestrator → departments → teams → specialists. The live deal runs 11 real agents; this view shows the same architecture at thousands. Humans answer each message in one business day; agents in about 1.5 s (measured on Workers AI), with the same headcount in parallel.</div>
+  </div>
+  <div class="dock">
+    <div class="kpis">
+      <div class="kpi hero"><div class="lbl">Faster than humans</div><div class="val"><span id="k1v">—</span><span class="x">×</span></div></div>
+      <div class="kpi"><div class="lbl">Agent time</div><div class="val"><span id="k2v">0s</span><span class="sub">simulated</span></div></div>
+      <div class="kpi"><div class="lbl">Human equivalent</div><div class="val"><span id="k3v">0 days</span><span class="sub">same headcount</span></div></div>
+      <div class="kpi"><div class="lbl">Messages</div><div class="val"><span id="k4v">0</span><span class="sub">agent to agent</span></div></div>
+      <div class="kpi"><div class="lbl">Agents</div><div class="val"><span id="k5v">0</span><span class="sub" id="k5s">3 companies</span></div></div>
+    </div>
+    <div class="race scale-race" id="race"><div class="race-plot"><canvas id="raceCanvas"></canvas><div id="raceHead"></div></div></div>
+  </div>
 </div>
 <script type="module">
 import { buildStyle, buildElements, setPose, sendPacket, coneLayout, applyTheme, getTheme, theme } from "/graph.js";
+import { createScaleChart, fmtDuration } from "/timechart.js";
 const $ = (s) => document.querySelector(s);
+const fmt = (n) => Math.round(n).toLocaleString("en-US");
 
 applyTheme(getTheme());
 const extraStyle = () => [
-  { selector: "node.agent.mini", style: { "width":12, "height":18, "font-size":8, "text-margin-y":3, "min-zoomed-font-size":10 } },
-  { selector: "node.agent.micro", style: { "width":7, "height":10, "label":"", "min-zoomed-font-size":99 } },
-  { selector: "edge.reports", style: { "curve-style":"haystack", "haystack-radius":0, "width":0.8, "line-color":theme().reports } },
-  { selector: "node.coname", style: { "background-opacity":0, "border-width":0, "width":1, "height":1, "label":"data(label)", "color":theme().strong, "font-size":22, "font-weight":700, "text-valign":"center", "events":"no" } },
+  { selector: "node.agent.mini", style: { "width":12, "height":18, "font-size":9, "text-margin-y":3, "min-zoomed-font-size":10 } },
+  { selector: "node.agent.micro", style: { "width":7, "height":10, "label":"" } },
+  { selector: "edge.reports", style: { "curve-style":"haystack", "haystack-radius":0, "width":1, "line-color":theme().reports } },
+  { selector: "node.coname", style: { "background-opacity":0, "border-width":0, "width":1, "height":1, "label":"data(label)", "color":theme().strong, "font-family":"Inter, system-ui, sans-serif", "font-size":26, "font-weight":700, "text-valign":"center", "events":"no" } },
 ];
 const cy = cytoscape({ container: $("#cy"), wheelSensitivity: 0.25, minZoom: 0.02, maxZoom: 3, style: buildStyle(extraStyle()) });
-$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle(extraStyle())); };
 window.cy = cy;
+cy.autounselectify(true);
+const race = createScaleChart($("#raceCanvas"), $("#raceHead"));
+document.fonts?.ready.then(() => { cy.style(buildStyle(extraStyle())); race.chart.update("none"); });
 
-// Department and team names so the tree reads like a real enterprise
 const BUYER_DEPTS = {
   "Procurement": ["Sourcing", "Negotiation", "Supplier onboarding", "Spend analytics"],
   "Security": ["Vendor risk", "AppSec review", "Pen-test review", "Compliance evidence"],
@@ -75,113 +90,103 @@ const VENDOR_DEPTS = {
 };
 const SPECIALISTS = ["Question", "Clause", "Line item", "Control", "Check", "Case"];
 const VENDOR_NAMES = ["Beacon Analytics", "Quickdash", "Northstar Data", "Lumen BI", "Vector Metrics", "Keel Analytics"];
-
 let depth = 1, vendorCount = 2, msgs = 0, paused = false, frame = 0;
+const working = new Map();
 
 function company(name, buyer, maxDepth) {
-  const depts = buyer ? BUYER_DEPTS : VENDOR_DEPTS;
-  const key = name.toLowerCase().replace(/[^a-z]/g, "");
-  const members = [{ id: `${key}.orch`, role: "Orchestrator", model: "frontier", frontier: true }];
+  const depts = buyer ? BUYER_DEPTS : VENDOR_DEPTS, key = name.toLowerCase().replace(/[^a-z]/g, "");
+  const members = [{ id: `${key}.orch`, role: "Orchestrator", frontier: true }];
   Object.entries(depts).forEach(([dept, teams], di) => {
     const d = `${key}.d${di}`;
-    if (maxDepth >= 1) members.push({ id: d, reportsTo: `${key}.orch`, role: dept, model: "open-weight" });
+    members.push({ id: d, reportsTo: `${key}.orch`, role: dept });
     if (maxDepth >= 2) teams.forEach((team, ti) => {
       const t = `${d}.t${ti}`;
-      members.push({ id: t, reportsTo: d, role: team, model: "open-weight", cls: "mini" });
+      members.push({ id: t, reportsTo: d, role: team, cls: "mini" });
       if (maxDepth >= 3) for (let k = 0; k < 6; k++) {
         const sp = `${t}.s${k}`;
-        members.push({ id: sp, reportsTo: t, role: `${SPECIALISTS[k % SPECIALISTS.length]} ${ti * 6 + k + 1}`, model: "open-weight", cls: "micro" });
-        if (maxDepth >= 4) for (let j = 0; j < 4; j++) members.push({ id: `${sp}.x${j}`, reportsTo: sp, role: "sub-specialist", model: "open-weight", cls: "micro" });
+        members.push({ id: sp, reportsTo: t, role: `${SPECIALISTS[k % SPECIALISTS.length]} ${ti * 6 + k + 1}`, cls: "micro" });
+        if (maxDepth >= 4) for (let j = 0; j < 4; j++) members.push({ id: `${sp}.x${j}`, reportsTo: sp, role: "Sub-specialist", cls: "micro" });
       }
     });
   });
   return { name, buyer, members };
 }
-function world() {
-  return [company("Acme Corp", true, depth), ...VENDOR_NAMES.slice(0, vendorCount).map((n) => company(n, false, depth))];
-}
+const world = () => [company("Acme Corp", true, depth), ...VENDOR_NAMES.slice(0, vendorCount).map((n) => company(n, false, depth))];
 
+const SAFE = { t: 92, r: 32, b: 48, l: 32 };
+function fitSafe(dur = 700) {
+  const eles = cy.nodes(".agent, .coname"); if (!eles.length) return;
+  const w = cy.width(), h = cy.height(), bb = eles.boundingBox(), p = SAFE;
+  const z = Math.min((w - p.l - p.r) / Math.max(bb.w, 1), (h - p.t - p.b) / Math.max(bb.h, 1), 1.6);
+  cy.animate({ zoom: z, pan: { x: p.l + (w - p.l - p.r) / 2 - z * (bb.x1 + bb.w / 2), y: p.t + (h - p.t - p.b) / 2 - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic" });
+}
 function render(animate) {
   const companies = world();
   const opts = { levelGap: depth >= 4 ? 300 : depth >= 3 ? 280 : 240, center: depth >= 3 ? 360 : 280 };
-  const els = buildElementsWith(companies, opts);
-  const old = new Map(cy.nodes(".agent").map((n) => [n.id(), n.position()]));
-  cy.batch(() => {
-    cy.elements().remove();
-    cy.add(els);
-    // new nodes start at their manager's old position, then everything glides to the new layout
-    if (animate) cy.nodes(".agent").forEach((n) => {
-      const target = { ...n.position() };
-      const from = old.get(n.id()) || old.get(n.data("boss")) || target;
-      n.position({ ...from });
-      n.data("goal", target);
-    });
-  });
-  if (animate) cy.nodes(".agent").forEach((n) => n.animate({ position: n.data("goal") }, { duration: 900, easing: "ease-in-out-cubic" }));
-  setTimeout(() => cy.animate({ fit: { eles: cy.elements(), padding: 40 } }, { duration: 700 }), animate ? 950 : 0);
-  $("#nAgents").textContent = cy.nodes(".agent").length.toLocaleString();
-  $("#nCompanies").textContent = companies.length;
-  $("#depth").textContent = ["L1 departments", "L1 departments", "L2 teams", "L3 specialists", "L4 sub-specialists"][depth];
-}
-function buildElementsWith(companies, opts) {
   const built = buildElements(companies, (m) => m.role, coneLayout, opts);
-  const anchors = built.anchors;
-  // no company boxes in the scale view: cones point in different directions
   const els = built.els.filter((e) => !(e.group === "nodes" && e.classes === "company"));
   for (const e of els) if (e.group === "nodes") delete e.data.parent;
-  for (const c of companies) {
-    const a = anchors[c.name];
-    els.push({ group: "nodes", data: { id: "name:" + c.name, label: c.name + (c.buyer ? " · buyer" : "") }, position: { x: a.x - Math.cos(a.axis) * 150, y: a.y - Math.sin(a.axis) * 150 - 30 }, classes: "coname" });
-  }
-  return els;
+  for (const c of companies) { const a = built.anchors[c.name]; els.push({ group: "nodes", data: { id: "name:" + c.name, label: c.name + (c.buyer ? " · buyer" : "") }, position: { x: a.x - Math.cos(a.axis) * 160, y: a.y - Math.sin(a.axis) * 160 - 30 }, classes: "coname" }); }
+  const old = new Map(cy.nodes(".agent").map((n) => [n.id(), { ...n.position() }]));
+  cy.batch(() => {
+    cy.elements().remove(); cy.add(els);
+    if (animate) cy.nodes(".agent").forEach((n) => { const goal = { ...n.position() }; n.data("goal", goal); n.position({ ...(old.get(n.id()) || old.get(n.data("boss")) || goal) }); });
+  });
+  if (animate) cy.nodes(".agent").forEach((n) => n.animate({ position: n.data("goal") }, { duration: 900, easing: "ease-in-out-cubic" }));
+  setTimeout(() => fitSafe(), animate ? 950 : 0);
+  const n = cy.nodes(".agent").length;
+  $("#k5v").textContent = fmt(n); $("#k5s").textContent = `${companies.length} companies`;
+  $("#chTitle").textContent = `${fmt(n)} agents · ${companies.length} companies`;
+  document.querySelectorAll("#depthSeg button").forEach((b) => b.classList.toggle("active", Number(b.dataset.d) === depth));
 }
+function setDepth(d) { d = Math.max(1, Math.min(4, d)); if (d === depth) return; depth = d; render(true); race.marker(msgs, `L${d}`); }
+function addVendor() { if (vendorCount >= VENDOR_NAMES.length) return; vendorCount++; render(true); race.marker(msgs, "+V"); }
 
-// Simulated traffic: tasks flow down the chain of command, results flow back up, orchestrators and counterpart departments talk across companies.
+// Simulated traffic: tasks go down the chain of command, results come back up; orchestrators talk across companies.
 function tick() {
   if (paused) return;
   frame++;
-  const agents = cy.nodes(".agent");
-  const withBoss = agents.filter((n) => n.data("boss"));
+  const agents = cy.nodes(".agent"), withBoss = agents.filter((n) => n.data("boss"));
   const n = Math.min(14, 2 + Math.floor(withBoss.length / 120));
   for (let i = 0; i < n; i++) {
     const node = withBoss[Math.floor(Math.random() * withBoss.length)]; if (!node) break;
-    const down = Math.random() < 0.5;
-    const [a, b] = down ? [node.data("boss"), node.id()] : [node.id(), node.data("boss")];
+    const [a, b] = Math.random() < 0.5 ? [node.data("boss"), node.id()] : [node.id(), node.data("boss")];
     sendPacket(cy, a, b, { dot: true, noEdge: true, duration: 700 + Math.random() * 500, cls: Math.random() < 0.03 ? "bad" : "" });
     working.set(b, Date.now() + 1200);
-    msgs++;
   }
-  const orchs = agents.filter((x) => x.id().endsWith(".orch"));
-  const buyer = orchs.filter((x) => x.id().startsWith("acmecorp"))[0];
-  if (buyer && frame % 6 === 0) {
+  msgs += Math.max(n, Math.round(agents.length / 40));
+  const orchs = agents.filter((x) => x.id().endsWith(".orch")), buyer = orchs.filter((x) => x.id().startsWith("acmecorp"))[0];
+  if (buyer && frame % 6 === 0 && orchs.length > 1) {
     const v = orchs.filter((x) => x !== buyer)[Math.floor(Math.random() * (orchs.length - 1))];
-    if (v) { const [a, b] = Math.random() < 0.5 ? [buyer.id(), v.id()] : [v.id(), buyer.id()]; sendPacket(cy, a, b, { label: "💬", duration: 1100 }); msgs++; working.set(b, Date.now() + 1500); }
+    const [a, b] = Math.random() < 0.5 ? [buyer.id(), v.id()] : [v.id(), buyer.id()];
+    sendPacket(cy, a, b, { label: "MSG", duration: 1100 }); working.set(b, Date.now() + 1500);
   }
-  $("#nMsgs").textContent = msgs.toLocaleString();
+  const k = race.update(msgs, agents.length);
+  $("#k1v").textContent = fmt(k.speedup); $("#k2v").textContent = fmtDuration(k.agentSec); $("#k3v").textContent = fmtDuration(k.humanSec); $("#k4v").textContent = fmt(msgs);
 }
-const working = new Map();
 setInterval(tick, 160);
-setInterval(() => {
-  const now = Date.now(), f = ++frame;
-  cy.nodes(".agent").forEach((nd) => {
-    if (nd.hasClass("micro")) return;
-    setPose(nd, (working.get(nd.id()) || 0) > now ? "work" : "idle", f);
-  });
-}, 400);
+setInterval(() => { const now = Date.now(), f = ++frame; cy.nodes(".agent").forEach((nd) => { if (!nd.hasClass("micro")) setPose(nd, (working.get(nd.id()) || 0) > now ? "work" : "idle", f); }); }, 400);
 
-$("#grow").onclick = () => { if (depth < 4) { depth++; render(true); } };
-$("#shrink").onclick = () => { if (depth > 1) { depth--; render(true); } };
-$("#vendors").onclick = () => { if (vendorCount < VENDOR_NAMES.length) { vendorCount++; render(true); } };
-$("#pause").onclick = () => { paused = !paused; $("#pause").textContent = paused ? "Resume traffic" : "Pause traffic"; };
+document.querySelectorAll("#depthSeg button").forEach((b) => (b.onclick = () => setDepth(Number(b.dataset.d))));
+$("#addVendor").onclick = addVendor;
+const togglePause = () => { paused = !paused; $("#pause").firstChild.textContent = paused ? "Resume " : "Pause "; };
+$("#pause").onclick = togglePause;
+function toggleTheme() { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle(extraStyle())); cy.nodes(".agent").forEach((n) => setPose(n, "idle", 0)); race.recolor(); }
+$("#theme").onclick = toggleTheme;
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === "ArrowUp") setDepth(depth + 1); else if (k === "ArrowDown") setDepth(depth - 1);
+  else if (k === "=" || k === "+") addVendor(); else if (k === " ") togglePause();
+  else if (k === "t" || k === "T") toggleTheme(); else if (k === "v" || k === "V") location.href = "/";
+  else return;
+  e.preventDefault();
+});
 window.addEventListener("resize", () => cy.resize());
 render(false);
 if (new URLSearchParams(location.search).get("tour")) {
-  const pill = document.createElement("div");
-  pill.textContent = "Demo tour · scale simulation";
-  pill.style.cssText = "position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:7;font-size:11px;letter-spacing:.8px;text-transform:uppercase;border:1px solid #e0a800;color:#e0a800;background:var(--bg);padding:4px 10px;border-radius:999px";
-  document.querySelector(".stage").appendChild(pill);
-  const steps = [() => $("#grow").click(), () => $("#grow").click(), () => $("#vendors").click(), () => $("#vendors").click()];
-  steps.forEach((fn, i) => setTimeout(fn, 2500 + i * 4500));
+  $("#tourPill").classList.remove("hidden");
+  [() => setDepth(2), () => setDepth(3), () => addVendor(), () => addVendor()].forEach((fn, i) => setTimeout(fn, 2500 + i * 4500));
 }
 </script>
 </body>

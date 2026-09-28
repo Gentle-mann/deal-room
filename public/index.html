@@ -4,168 +4,197 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Deal Room</title>
+<script>try{if(localStorage.getItem("dealroom-theme")==="light")document.documentElement.dataset.theme="light";}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.34.3/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-:root {
-  --bg:#000; --panel:#0a0a0a; --panel2:#111; --line:#1f1f1f; --line2:#2c2c2c; --text:#f2f2f2; --muted:#8a8a8a; --dim:#5a5a5a;
-  --cap:rgba(10,10,10,.92); --card:#0d0d0d; --shadow:rgba(0,0,0,.8); --chart:#050505;
-  --red:#ff4d4f; --green:#2fbf71; --amber:#e0a800;
-}
-:root[data-theme="light"] {
-  --bg:#ffffff; --panel:#fafafa; --panel2:#f3f3f3; --line:#e8e8e8; --line2:#d6d6d6; --text:#111111; --muted:#666666; --dim:#9a9a9a;
-  --cap:rgba(255,255,255,.95); --card:#ffffff; --shadow:rgba(0,0,0,.14); --chart:#ffffff;
-}
-* { box-sizing:border-box; }
-html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-body { display:grid; grid-template-rows:auto 1fr; }
-header { display:flex; align-items:center; gap:16px; padding:12px 18px; border-bottom:1px solid var(--line); }
-.brand b { font-size:16px; letter-spacing:.2px; } .brand span { color:var(--muted); font-size:12px; margin-left:10px; }
-form { display:flex; align-items:center; gap:8px; margin-left:12px; }
-input[type=number] { background:var(--panel2); border:1px solid var(--line2); color:var(--text); border-radius:6px; padding:6px 8px; width:100px; font-size:12.5px; }
-button { background:var(--text); color:var(--bg); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
-button.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
-button.on { border-color:var(--text); }
-details { position:relative; font-size:12.5px; color:var(--muted); }
-details summary { cursor:pointer; list-style:none; padding:6px 8px; border:1px solid var(--line2); border-radius:6px; }
-details[open] .menu { position:absolute; top:34px; left:0; z-index:9; background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px; width:230px; display:grid; gap:8px; }
-details label { display:flex; gap:8px; align-items:center; color:var(--text); }
-.clock { margin-left:auto; text-align:right; line-height:1.1; }
-.clock b { font-size:26px; font-variant-numeric:tabular-nums; font-weight:600; }
-.clock div { color:var(--muted); font-size:11px; }
-.main { display:grid; grid-template-columns:minmax(0,1fr) 360px; min-height:0; }
-@media (max-width: 1000px) { .main { grid-template-columns:1fr; grid-template-rows: 60vh auto; } }
-.stage { position:relative; min-height:0; }
-#cy { position:absolute; top:42px; bottom:104px; left:0; right:0; }
-.steps { position:absolute; left:16px; top:12px; right:200px; display:flex; gap:4px; flex-wrap:wrap; z-index:3; pointer-events:none; }
-.step { font-size:10.5px; padding:3px 8px; border-radius:999px; border:1px solid var(--line2); color:var(--dim); background:var(--bg); }
-.step.on { color:var(--text); border-color:var(--text); } .step.done { color:var(--muted); border-color:var(--line2); text-decoration:line-through; text-decoration-color:var(--dim); }
-.viewbtns { position:absolute; right:14px; top:10px; display:flex; gap:6px; z-index:3; }
-.caption { position:absolute; left:16px; right:16px; bottom:14px; z-index:3; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
-.cap { background:var(--cap); border:1px solid var(--line2); border-left:3px solid var(--text); border-radius:8px; padding:8px 12px; font-size:13px; max-width:760px; }
-.cap .who { color:var(--muted); font-size:11px; margin-bottom:2px; }
-.cap.block { border-left-color:var(--red); } .cap.money, .cap.win { border-left-color:var(--green); } .cap.escalate, .cap.flag { border-left-color:var(--amber); }
-.side { border-left:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; min-height:0; }
-.tabs { display:flex; border-bottom:1px solid var(--line); }
-.tabs button { flex:1; border-radius:0; background:transparent; color:var(--muted); border-bottom:2px solid transparent; padding:10px; font-weight:500; }
-.tabs button.active { color:var(--text); border-bottom-color:var(--text); }
-.pane { overflow:auto; padding:14px; flex:1; min-height:0; }
-.hidden { display:none !important; }
+.main { display:grid; grid-template-columns:minmax(0,1fr) 400px; min-height:0; transition:grid-template-columns 320ms var(--ease-out); }
 .main.spot { grid-template-columns:minmax(0,1fr) 560px; }
-.tr-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.tr-head h3 { margin:0; font-size:16px; } .tr-head .sub { color:var(--muted); font-size:12px; }
-.call { border:1px solid var(--line2); border-radius:10px; padding:10px 12px; margin-bottom:12px; background:var(--panel2); }
-.call.running { border-color:var(--amber); }
-.call .meta { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:11px; margin-bottom:6px; flex-wrap:wrap; }
-.call .lbl { font-size:10px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin:8px 0 3px; }
-.call pre { margin:0; white-space:pre-wrap; word-break:break-word; font:12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--text); max-height:220px; overflow:auto; }
-.call details summary { cursor:pointer; color:var(--muted); font-size:11px; margin-top:8px; }
-.check { font-size:12.5px; margin-top:8px; padding:6px 8px; border-radius:6px; border:1px solid var(--line2); }
-.check.ok { border-color:var(--green); } .check.bad { border-color:var(--red); color:var(--red); }
-.sent { font-size:12.5px; margin-top:6px; }
-.pill { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:7; font-size:11px; letter-spacing:.8px; text-transform:uppercase; border:1px solid var(--amber); color:var(--amber); background:var(--bg); padding:4px 10px; border-radius:999px; }
-#theme { min-width:34px; padding:6px 8px; }
-.fhead h3 { margin:0; font-size:15px; } .fhead .sub { color:var(--muted); font-size:12px; margin-top:2px; }
-.tag { display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:4px; border:1px solid var(--line2); color:var(--muted); margin:6px 6px 0 0; }
-.job { font-size:13px; color:var(--text); margin:10px 0 12px; }
-.cbox { border:1px solid var(--line2); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
-.cbox h4 { margin:0 0 4px; font-size:10.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); }
-.cbox ul { margin:0; padding-left:16px; font-size:12.5px; color:var(--text); }
-.st { font-size:10.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin:14px 0 6px; }
-.item { font-size:12.5px; border-bottom:1px solid var(--line); padding:7px 0; overflow-wrap:anywhere; }
-.item .meta { color:var(--dim); font-size:11px; }
-.k-block { color:var(--red); } .k-flag, .k-escalate { color:var(--amber); } .k-money, .k-win { color:var(--green); } .k-stage { color:var(--text); font-weight:600; } .k-error { color:var(--red); }
-.chart { width:100%; height:140px; border:1px solid var(--line2); border-radius:8px; background:var(--chart); }
-.overlay { position:absolute; left:50%; transform:translateX(-50%); z-index:6; }
-.closed { top:52px; width:min(620px,92%); background:var(--card); border:1px solid var(--green); border-radius:10px; padding:14px 16px; box-shadow:0 20px 60px var(--shadow); }
-.closed b.big { font-size:20px; } .closed a { color:var(--text); font-weight:600; margin-right:14px; }
-.invoice { bottom:84px; width:min(480px,92%); background:#fff; color:#111; border:1px solid #d6d6d6; border-radius:10px; padding:16px 18px; box-shadow:0 24px 70px var(--shadow); font-size:13px; }
-.invoice .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-.invoice .brandmark { font-weight:800; font-size:16px; letter-spacing:-.2px; }
-.invoice .pill { font-size:10px; border:1px solid #111; padding:1px 6px; border-radius:4px; font-weight:700; }
-.invoice .amt { font-size:26px; font-weight:800; margin:4px 0 8px; }
-.invoice .row { display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-bottom:1px solid #eee; }
-.invoice .stamp { position:absolute; right:20px; top:48px; border:3px solid #1a8f4e; color:#1a8f4e; font-weight:900; font-size:26px; padding:1px 10px; border-radius:6px; transform:rotate(-10deg); opacity:0; transition:opacity .35s; }
-.invoice.paid .stamp { opacity:1; }
-.invoice a { color:#111; font-weight:700; }
+.main.nopanel { grid-template-columns:minmax(0,1fr) 0px; }
+.main.nopanel .side { overflow:hidden; border:0; }
+.left { display:grid; grid-template-rows:minmax(0,1fr) 288px; min-width:0; min-height:0; }
+.side { background:var(--surface-1); border-left:1px solid var(--line-strong); display:flex; flex-direction:column; min-height:0; min-width:0; }
+.tabs { display:flex; height:48px; border-bottom:1px solid var(--line); flex:none; }
+.tabs button { flex:1; background:transparent; border:0; cursor:pointer; font:500 14px/20px Inter,sans-serif; color:var(--text-3); display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.tabs button.active { color:var(--text); box-shadow:inset 0 -2px 0 var(--text); }
+.pane { flex:1; overflow:auto; padding:20px 24px; min-height:0; }
+.ptitle { font:600 22px/28px Inter,sans-serif; letter-spacing:-0.01em; margin:0; }
+.psub { font:400 14px/20px Inter,sans-serif; color:var(--text-2); margin-top:2px; }
+.tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.overline { font:600 12px/16px Inter,sans-serif; letter-spacing:.01em; color:var(--text-2); margin-top:20px; }
+.job { font:400 14px/20px Inter,sans-serif; color:var(--text); }
+.bul { margin:8px 0 0; padding:0; list-style:none; }
+.bul li { position:relative; padding-left:16px; font:400 14px/20px Inter,sans-serif; margin-bottom:6px; }
+.bul li::before { content:""; position:absolute; left:2px; top:8px; width:4px; height:4px; background:var(--text-3); }
+.empty { font:400 14px/20px Inter,sans-serif; color:var(--text-3); }
+.io { padding:10px 0; border-bottom:1px solid var(--line); }
+.io .m { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); }
+.io .t { margin-top:4px; font:400 14px/20px Inter,sans-serif; overflow-wrap:anywhere; }
+.k-block, .k-error { color:var(--red); } .k-money, .k-win { color:var(--green); } .k-flag, .k-escalate { color:var(--amber); } .k-stage { font-weight:600; }
+.logrow { display:grid; grid-template-columns:56px 1fr; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); }
+.logrow .time { font:500 12px/20px "JetBrains Mono",monospace; color:var(--text-3); }
+.logrow .who { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font:600 13px/16px Inter,sans-serif; color:var(--text-2); }
+.logrow .t { margin-top:4px; font:400 14px/20px Inter,sans-serif; overflow-wrap:anywhere; }
+.logrow.block .t, .logrow.money .t, .logrow.escalate .t { padding-left:10px; }
+.logrow.block .t { box-shadow:inset 2px 0 0 var(--red); } .logrow.money .t { box-shadow:inset 2px 0 0 var(--green); } .logrow.escalate .t { box-shadow:inset 2px 0 0 var(--amber); }
+.logstage { padding:16px 0 6px; border-top:1px solid var(--line-strong); font:600 12px/16px Inter,sans-serif; color:var(--text-2); }
+.pricechart { width:100%; margin-top:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; }
+.spothead { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
+.call { background:var(--surface-2); border:1px solid var(--line-strong); border-radius:12px; padding:16px; margin-bottom:12px; animation:callin 240ms var(--ease-out); }
+.call.running { border-color:var(--amber-line); box-shadow:inset 3px 0 0 var(--amber); }
+.call .cm { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); }
+.call .lbl { font:600 12px/16px Inter,sans-serif; color:var(--text-2); margin:12px 0 4px; }
+.call pre { margin:0; white-space:pre-wrap; word-break:break-word; }
+.call pre.recv { font:400 13px/20px "JetBrains Mono",monospace; color:var(--text-2); max-height:132px; overflow:auto; }
+.call pre.out { font:400 14px/22px "JetBrains Mono",monospace; color:var(--text); max-height:260px; overflow:auto; }
+.call details summary { cursor:pointer; font:400 13px/16px Inter,sans-serif; color:var(--text-3); margin-top:10px; }
+.call details pre { font:400 13px/20px "JetBrains Mono",monospace; color:var(--text-2); margin-top:6px; }
+.caret { animation:blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity:0; } }
+@keyframes callin { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.check { margin-top:12px; border-radius:8px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; }
+.check .ic { width:18px; height:18px; border-radius:50%; flex:none; display:grid; place-items:center; font:700 11px/1 Inter,sans-serif; margin-top:1px; }
+.check.ok { background:var(--green-bg); border:1px solid var(--green-line); } .check.ok .ic { background:var(--green); color:var(--on-status); }
+.check.bad { background:var(--red-bg); border:1px solid var(--red-line); } .check.bad .ic { background:var(--red); color:var(--on-red); }
+.check .ct { font:600 14px/20px Inter,sans-serif; } .check.ok .ct { color:var(--green); } .check.bad .ct { color:var(--red); }
+.check .cn { font:400 13px/20px Inter,sans-serif; color:var(--text-2); }
+.sent { margin-top:10px; font:400 14px/20px Inter,sans-serif; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+@media (max-width: 1360px), (max-height: 780px) {
+  .main { grid-template-columns:minmax(0,1fr) 360px; } .main.spot { grid-template-columns:minmax(0,1fr) 480px; }
+  .left { grid-template-rows:minmax(0,1fr) 232px; }
+  .pane { padding:16px; } .ptitle { font-size:20px; line-height:26px; }
+  .call pre.out { font-size:13px; line-height:20px; } .call pre.recv { font-size:12px; line-height:18px; }
+}
+@media (max-width: 1100px) {
+  html, body { overflow:auto; } body { grid-template-rows:auto auto; }
+  .main { grid-template-columns:1fr !important; } .left { grid-template-rows:60vh auto; } .side { border-left:0; border-top:1px solid var(--line-strong); }
+  .kpis { grid-template-columns:1fr 1fr; } .dock { grid-template-rows:auto 172px; } header { flex-wrap:wrap; height:auto; padding:8px 16px; }
+}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><b>Deal Room</b><span>company agents close B2B deals end to end</span></div>
-  <form id="start">
-    <input id="budget" type="number" value="120000" step="1000" min="110000" title="Acme's private annual budget" />
-    <details><summary>Options</summary><div class="menu">
-      <label><input id="aggr" type="checkbox" /> Aggressive buyer</label>
-      <label><input id="allbb" type="checkbox" /> All agents on Brainbase</label>
-      <a href="/scale.html" style="color:var(--text)">Scale view (simulation) →</a>
-    </div></details>
-    <button type="submit">Start deal</button>
-  </form>
-  <button class="ghost" id="theme" type="button" title="Toggle light / dark">◐</button>
-  <div class="clock"><b id="clock">0:00</b><div>vs. 134-day average sales cycle</div></div>
+  <span class="mark"></span><span class="wordmark">Deal Room</span><span class="divider"></span>
+  <span class="pill" id="status"><span class="dot"></span><span id="statusText">Idle</span></span>
+  <span class="meta" id="meta">Acme Corp ↔ 2 vendors</span>
+  <div class="hright">
+    <div class="options">
+      <button class="btn btn-ghost" id="optBtn" type="button">Options ▾</button>
+      <div class="menu hidden" id="optMenu">
+        <div class="field">Buyer budget (private)<input id="budget" type="number" value="120000" step="1000" min="110000" /></div>
+        <label><input id="aggr" type="checkbox" /> Aggressive buyer</label>
+        <label><input id="allbb" type="checkbox" /> All agents on Brainbase</label>
+      </div>
+    </div>
+    <a class="btn btn-ghost" href="/scale.html" id="scaleBtn">Scale view <kbd>V</kbd></a>
+    <button class="btn btn-ghost" id="startBtn" type="button">Start deal <kbd>S</kbd></button>
+    <button class="btn btn-primary" id="tourBtn" type="button">▶ Demo tour <kbd>D</kbd></button>
+    <button class="btn btn-ghost btn-icon" id="theme" type="button" title="Theme (T)">◐</button>
+  </div>
 </header>
 <div class="main" id="main">
-  <div class="stage">
-    <div id="cy"></div>
-    <div class="steps" id="steps"></div>
-    <div class="viewbtns"><button class="ghost" id="tourBtn">▶ Demo tour</button><button class="ghost" id="follow">Follow</button><button class="ghost" id="fit">Big picture</button></div>
-    <div class="pill hidden" id="tourPill"></div>
-    <div class="caption" id="caption"></div>
-    <div class="overlay closed hidden" id="closed"></div>
-    <div class="overlay invoice hidden" id="invoice"></div>
+  <div class="left">
+    <div class="stage" id="stage">
+      <div id="cy"></div>
+      <div class="chapter" id="chapter">
+        <div class="row1"><span class="tourpill hidden" id="tourPill">▶ Demo tour</span><span class="eyebrow" id="eyebrow">Press D for the demo tour</span><span class="blk">· Blocked by charter</span></div>
+        <div class="title" id="chTitle">Ready</div>
+      </div>
+      <div class="camera"><div class="seg"><button id="follow" type="button">Follow <kbd>F</kbd></button><button id="fit" type="button">Fit <kbd>B</kbd></button></div></div>
+      <div class="legend"><span><i style="background:var(--amber)"></i>Working</span><span><i style="background:var(--red)"></i>Blocked</span><span><i style="background:var(--green)"></i>Done</span><span class="sep"></span><span><b style="background:var(--g-frontier)"></b>Frontier</span><span><b style="background:var(--g-open)"></b>Open-weight</span></div>
+      <div class="caption" id="caption"></div>
+      <div class="invoice hidden" id="invoice"></div>
+      <div class="takeover hidden" id="takeover"></div>
+    </div>
+    <div class="dock">
+      <div class="kpis">
+        <div class="kpi hero" id="k1"><div class="lbl">Faster than humans</div><div class="val"><span id="k1v">—</span><span class="x">×</span></div></div>
+        <div class="kpi"><div class="lbl">Agent time</div><div class="val"><span id="k2v">0s</span><span class="sub">real, elapsed</span></div></div>
+        <div class="kpi"><div class="lbl">Human equivalent</div><div class="val"><span id="k3v">0 days</span><span class="sub">of a 134-day average</span></div></div>
+        <div class="kpi"><div class="lbl">Messages</div><div class="val"><span id="k4v">0</span><span class="sub">agent to agent</span></div></div>
+        <div class="kpi"><div class="lbl">Agents</div><div class="val"><span id="k5v">0</span><span class="sub" id="k5s">3 companies</span></div></div>
+      </div>
+      <div class="race idle" id="race">
+        <div class="race-plot"><canvas id="raceCanvas"></canvas><div id="raceHead"></div></div>
+        <ol class="chips" id="chips"></ol>
+      </div>
+    </div>
   </div>
   <aside class="side">
-    <div class="tabs"><button id="tFocus" class="active">Agent</button><button id="tLog">Deal log</button></div>
-    <div class="pane" id="focus"><div style="color:var(--muted);font-size:13px">Select an agent to see its charter, what it received and what it sent.</div></div>
+    <div class="tabs"><button id="tFocus" class="active" type="button">Agent</button><button id="tLog" type="button">Deal log <kbd>L</kbd></button></div>
+    <div class="pane" id="focus"><div class="empty">Select an agent to see its charter, inbox and outbox. Double-click an agent to spotlight its real model calls.</div></div>
     <div class="pane hidden" id="log"></div>
     <div class="pane hidden" id="transcript"></div>
   </aside>
 </div>
 
 <script type="module">
-import { buildStyle, ART, RED, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
+import { buildStyle, code, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
+import { createDealChart, fmtDuration } from "/timechart.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
+const SHORT = ["Intake","Proposals","Security","Negotiate","Legal","Award","Approvals","PO","Invoice","Provision"];
+const isClosed = (s) => !!s?.done && (s.outcome ? s.outcome === "closed" : !!s.winner);
+const codeCls = (e) => (e.kind === "block" || e.art === "fraud" || e.art === "eliminate" || e.art === "deny") ? "block" : (e.kind === "money" || e.kind === "win") ? "money" : (e.kind === "flag" || e.kind === "escalate") ? "flag" : "";
 
 applyTheme(getTheme());
 const cy = cytoscape({ container: $("#cy"), style: buildStyle(), elements: [], wheelSensitivity: 0.25, minZoom: 0.05, maxZoom: 3 });
-$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle()); applyPoses(); renderFocus(); };
 window.cy = cy;
 cy.autounselectify(true);
-function markFocus(id) { cy.nodes(".agent").removeClass("focused"); if (id) cy.getElementById(id).addClass("focused"); }
+const race = createDealChart($("#raceCanvas"), $("#raceHead"));
+document.fonts?.ready.then(() => { cy.style(buildStyle()); race.chart.update("none"); });
 
 let dealId = new URLSearchParams(location.search).get("deal"), state = null, seen = 0, focusId = null, timer = null, builtFor = null;
-let follow = false, lastFollow = 0, frame = 0;
+let follow = false, lastFollow = 0, frame = 0, blockTimer = null, takeoverDismissed = false;
 const blockedUntil = {};
 
-// companies from live state; chain of command comes from each agent's reportsTo
+// ---------- camera: never put a node under an overlay ----------
+const SAFE = () => (innerWidth <= 1360 || innerHeight <= 780) ? { t:80, r:24, b:112, l:24 } : { t:92, r:32, b:124, l:32 };
+function fitSafe(eles = cy.elements(), dur = 600, maxZ = 1.6) {
+  eles = eles.filter((e) => !e.hasClass("packet")); if (!eles.length) return;
+  const p = SAFE(), inv = $("#invoice"); if (!inv.classList.contains("hidden")) p.r = inv.offsetWidth + 48;
+  const w = cy.width(), h = cy.height(), bb = eles.boundingBox();
+  const z = Math.min((w - p.l - p.r) / Math.max(bb.w, 1), (h - p.t - p.b) / Math.max(bb.h, 1), maxZ);
+  const cx = p.l + (w - p.l - p.r) / 2, cyy = p.t + (h - p.t - p.b) / 2;
+  cy.animate({ zoom: z, pan: { x: cx - z * (bb.x1 + bb.w / 2), y: cyy - z * (bb.y1 + bb.h / 2) } }, { duration: dur, easing: "ease-in-out-cubic" });
+}
+function relayout(after) { const t0 = performance.now(); (function f() { cy.resize(); if (performance.now() - t0 < 340) requestAnimationFrame(f); else { cy.resize(); after && after(); } })(); }
+function zoomTo(id) { const n = cy.getElementById(id); if (n.nonempty()) fitSafe(n.closedNeighborhood().filter((e) => e.isNode() && e.hasClass("agent")), 600, 1.4); }
+function setFollow(on) { follow = on; $("#follow").classList.toggle("active", on); $("#fit").classList.toggle("active", !on); if (!on) fitSafe(); }
+$("#fit").onclick = () => setFollow(false);
+$("#follow").onclick = () => setFollow(!follow);
+$("#fit").classList.add("active");
+
+// ---------- graph ----------
 function companiesFrom(s) {
   const map = new Map();
-  const add = (company, m) => { if (!map.has(company)) map.set(company, { name: company, buyer: company === s.buyer, members: [] }); map.get(company).members.push(m); };
-  for (const [id, a] of Object.entries(s.agents)) add(a.company, { id, reportsTo: a.reportsTo, role: a.role, model: a.label, frontier: a.platform === "Brainbase" });
+  for (const [id, a] of Object.entries(s.agents)) {
+    if (!map.has(a.company)) map.set(a.company, { name: a.company, buyer: a.company === s.buyer, members: [] });
+    map.get(a.company).members.push({ id, reportsTo: a.reportsTo, role: a.role, model: a.label, frontier: a.platform === "Brainbase" });
+  }
   return [...map.values()];
 }
 function build(s) {
   cy.elements().remove();
   cy.add(buildElements(companiesFrom(s), (m) => `${m.role}\n${m.model}`).els);
-  cy.fit(cy.elements(), 50);
+  cy.resize(); fitSafe(cy.elements(), 0);
   builtFor = s.id;
 }
-function targetOf(e) {
-  if (!e.to || e.to === e.agent) return null;
-  if (cy.getElementById(e.to).nonempty()) return e.to;
-  if (e.to === "stripe" && state.winner) return Object.keys(state.agents).find((id) => id.startsWith(state.winner.key) && id.endsWith(".desk")) || null;
-  return null;
-}
+function burst() { document.body.classList.add("is-blocked"); clearTimeout(blockTimer); blockTimer = setTimeout(() => document.body.classList.remove("is-blocked"), 1800); }
 function animateEvent(e) {
-  if (e.art === "channel" && e.pairs) for (const [x, y] of e.pairs) { const id = `c:${x}>${y}`; if (cy.getElementById(id).empty() && cy.getElementById(x).nonempty() && cy.getElementById(y).nonempty()) cy.add({ group: "edges", data: { id, source: x, target: y }, classes: "chan" }); }
+  if (e.art === "channel" && e.pairs) for (const [x, y] of e.pairs) { const id = `c:${x}>${y}`; if (cy.getElementById(id).empty() && cy.getElementById(x).nonempty() && cy.getElementById(y).nonempty()) cy.add({ group:"edges", data:{ id, source:x, target:y }, classes:"chan" }); }
   const bad = e.kind === "block" || e.art === "fraud" || e.art === "eliminate";
-  const cls = bad ? "bad" : e.kind === "money" ? "money" : "";
+  if (bad) burst();
   if (e.kind === "block" && e.agent) blockedUntil[e.agent] = Date.now() + 1800;
   if (e.art === "fraud") { blockedUntil[e.to] = Date.now() + 1800; return; }
-  const to = targetOf(e);
-  if (e.agent && to) sendPacket(cy, e.agent, to, { label: ART[e.art] || "•", cls });
+  let to = e.to && e.to !== e.agent && cy.getElementById(e.to).nonempty() ? e.to : null;
+  if (!to && e.to === "stripe" && state.winner) to = Object.keys(state.agents).find((id) => id.startsWith(state.winner.key) && id.endsWith(".desk")) || null;
+  if (e.agent && to) sendPacket(cy, e.agent, to, { label: code(e.art), cls: bad ? "bad" : e.kind === "money" ? "money" : "" });
+  else if (e.kind === "block" && e.agent && cy.getElementById(e.agent).data("boss")) sendPacket(cy, e.agent, cy.getElementById(e.agent).data("boss"), { label: "BLOCK", cls: "bad" });
 }
 function applyPoses() {
   if (!state) return;
@@ -175,25 +204,20 @@ function applyPoses() {
     let pose = "idle";
     if (blockedUntil[id] > Date.now()) pose = "block";
     else if (a?.status === "working") pose = "work";
-    else if (state.done && state.winner && (id.startsWith(state.winner.key) || id.startsWith("acme"))) pose = "done";
+    else if (isClosed(state) && state.winner && (id.startsWith(state.winner.key) || id.startsWith("acme"))) pose = "done";
     setPose(n, pose, frame);
   });
 }
 setInterval(applyPoses, 380);
-
-// camera
-$("#fit").onclick = () => { follow = false; $("#follow").classList.remove("on"); cy.animate({ fit:{ eles: cy.elements(), padding:50 } }, { duration:600 }); };
-$("#follow").onclick = () => { follow = !follow; $("#follow").classList.toggle("on", follow); if (!follow) $("#fit").onclick(); };
-function zoomTo(id) { const n = cy.getElementById(id); if (n.nonempty()) cy.animate({ center:{ eles:n }, zoom: 1.4 }, { duration:600 }); }
-cy.on("tap", "node.agent", (evt) => { focusId = evt.target.id(); markFocus(focusId); if (spotId) spotlight(focusId); else { showTab("focus"); zoomTo(focusId); renderFocus(); } });
+cy.on("tap", "node.agent", (evt) => { focusId = evt.target.id(); markFocus(); if (spotId) spotlight(focusId); else { showTab("focus"); zoomTo(focusId); renderFocus(); } });
 cy.on("dbltap", "node.agent", (evt) => spotlight(evt.target.id()));
+function markFocus() { cy.nodes(".agent").removeClass("focused"); if (focusId) cy.getElementById(focusId).addClass("focused"); }
 
-// ---------- Spotlight: one agent's real model calls, everything else dimmed ----------
+// ---------- spotlight ----------
 let spotId = null, calls = [], callsTimer = null;
 const typed = new Set();
 function partnersOf(id) {
-  const ids = new Set([id]);
-  const a = state?.agents[id]; if (a?.reportsTo) ids.add(a.reportsTo);
+  const ids = new Set([id]); const a = state?.agents[id]; if (a?.reportsTo) ids.add(a.reportsTo);
   for (const [k, v] of Object.entries(state?.agents || {})) if (v.reportsTo === id) ids.add(k);
   for (const e of state?.events || []) { if (e.agent === id && state.agents[e.to]) ids.add(e.to); if (e.to === id && state.agents[e.agent]) ids.add(e.agent); }
   return ids;
@@ -210,172 +234,226 @@ function applyDim() {
   });
 }
 function spotlight(id) {
-  spotId = id; focusId = id;
-  $("#main").classList.add("spot"); cy.resize();
-  showTab("transcript"); applyDim();
-  const keep = partnersOf(id);
-  cy.animate({ fit: { eles: cy.nodes(".agent").filter((n) => keep.has(n.id())), padding: 90 } }, { duration: 700 });
+  if (!state?.agents[id]) return;
+  spotId = id; focusId = id; markFocus();
+  $("#main").classList.add("spot"); $("#main").classList.remove("nopanel");
+  $("#tFocus").textContent = "Spotlight"; showTab("transcript");
+  relayout(() => { applyDim(); fitSafe(cy.nodes(".agent").filter((n) => partnersOf(id).has(n.id())), 700, 1.6); });
   loadCalls(); clearInterval(callsTimer); callsTimer = setInterval(loadCalls, 1500);
 }
 function exitSpotlight() {
   spotId = null; clearInterval(callsTimer);
-  $("#main").classList.remove("spot"); cy.resize(); applyDim(); showTab("focus"); renderFocus();
+  $("#main").classList.remove("spot"); $("#tFocus").textContent = "Agent";
+  applyDim(); showTab("focus"); renderFocus(); relayout(() => fitSafe());
 }
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && spotId) exitSpotlight(); });
-async function loadCalls() {
-  if (!dealId || !spotId) return;
-  calls = await fetch(`/api/deals/${dealId}/calls`).then((r) => r.json()).catch(() => calls) || [];
-  renderTranscript();
-}
+async function loadCalls() { if (!dealId || !spotId) return; calls = (await fetch(`/api/deals/${dealId}/calls`).then((r) => r.json()).catch(() => calls)) || []; renderTranscript(); }
 function renderTranscript() {
   if (!spotId || !state) return;
   const a = state.agents[spotId]; if (!a) return;
   const mine = calls.filter((c) => c.agent === spotId).sort((x, y) => x.n - y.n);
-  const secs = (c) => c.t1 ? ((c.t1 - c.t0) / 1000).toFixed(1) + "s" : Math.round((Date.now() - c.t0) / 1000) + "s…";
-  const box = $("#transcript");
-  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  const secs = (c) => c.t1 ? ((c.t1 - c.t0) / 1000).toFixed(1) + "s" : Math.round((Date.now() - c.t0) / 1000) + "s";
+  const box = $("#transcript"); const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
   box.innerHTML = `
-    <div class="tr-head"><div><h3>${esc(a.role)}</h3><div class="sub">${esc(a.company)} · ${esc(a.platform === "Brainbase" ? "frontier · " + a.label : "open-weight · " + a.label)} · reports to ${esc(a.reportsTo ? nameOf(a.reportsTo) : "no one (top of the chain)")}</div></div>
-      <button class="ghost" id="exitSpot" style="margin-left:auto">Exit spotlight</button></div>
-    <div class="st">Real model calls · ${mine.length}</div>
+    <div class="spothead"><div style="min-width:0"><div class="overline" style="margin-top:0">Spotlight</div><h3 class="ptitle">${esc(a.role)}</h3>
+      <div class="psub">${esc(a.company)} · ${esc(a.platform === "Brainbase" ? "frontier" : "open-weight")} · <span class="mono">${esc(a.label)}</span> · reports to ${esc(a.reportsTo ? state.agents[a.reportsTo]?.role : "no one")}</div></div>
+      <button class="btn btn-ghost" id="exitSpot" type="button" style="margin-left:auto;height:32px">Exit <kbd>Esc</kbd></button></div>
+    <div class="overline">Real model calls · ${mine.length}</div>
     ${mine.map((c, i) => `
       <div class="call ${c.status}" data-n="${c.n}">
-        <div class="meta"><span>Call ${i + 1} · ${new Date(c.t0).toLocaleTimeString()} · ${esc(c.model)} · ${secs(c)}</span>
+        <div class="cm"><span>Call ${i + 1} · ${new Date(c.t0).toLocaleTimeString()} · ${esc(c.model)} · ${secs(c)}</span>
           <span>${c.threadId ? "Brainbase thread " + esc(c.threadId.slice(0, 8)) + "…" : c.platform === "Workers AI" ? "Cloudflare Workers AI" : ""}${c.via === "fallback" ? " · fallback model" : ""}</span></div>
-        <div class="lbl">Received</div><pre>${esc(c.input)}</pre>
+        <div class="lbl">Received</div><pre class="recv">${esc(c.input)}</pre>
         <details><summary>Instructions and charter given to the model</summary><pre>${esc(c.system)}</pre></details>
-        <div class="lbl">Model output</div><pre class="out" data-full="${esc(c.output || "")}">${c.status === "running" ? "working…" : typed.has(c.n) ? esc(c.output || "") : ""}</pre>
-        ${c.check ? `<div class="check ${c.check.ok ? "ok" : "bad"}">${c.check.ok ? "✓ Charter check passed" : "⛔ Charter check"}: ${c.check.notes.map(esc).join(" · ")}</div>` : ""}
-        ${c.sentTo ? `<div class="sent">${ART[c.art] || "→"} Sent to <b>${esc(nameOf(c.sentTo))}</b></div>` : ""}
-      </div>`).join("") || `<div style="color:var(--dim);font-size:12.5px">No model calls yet. This agent is waiting for its turn in the deal.</div>`}`;
+        <div class="lbl">Model output</div><pre class="out" data-full="${esc(c.output || "")}">${c.status === "running" ? 'working <span class="caret">▍</span>' : typed.has(c.n) ? esc(c.output || "") : ""}</pre>
+        ${c.check ? `<div class="check ${c.check.ok ? "ok" : "bad"}"><span class="ic">${c.check.ok ? "✓" : "✕"}</span><div><div class="ct">${c.check.ok ? "Charter check passed" : "Blocked by charter"}</div><div class="cn">${c.check.notes.map(esc).join(" · ")}</div></div></div>` : ""}
+        ${c.sentTo ? `<div class="sent">→ Sent to <b>${esc(nameOf(c.sentTo))}</b> <span class="code ${c.art === "deny" || (c.check && !c.check.ok) ? "block" : c.art === "payment" ? "money" : ""}">${esc(code(c.art))}</span></div>` : ""}
+      </div>`).join("") || `<div class="empty">No model calls yet. This agent is waiting for its turn in the deal.</div>`}`;
   $("#exitSpot").onclick = exitSpotlight;
-  // type out outputs we have not shown yet
   box.querySelectorAll("pre.out").forEach((pre) => {
     const n = Number(pre.closest(".call").dataset.n), full = pre.dataset.full;
     if (!full || typed.has(n)) return;
     typed.add(n);
     let i = 0; const step = Math.max(3, Math.ceil(full.length / 90));
-    const t = setInterval(() => { i += step; pre.textContent = full.slice(0, i); if (i >= full.length) clearInterval(t); }, 18);
+    const t = setInterval(() => { i += step; pre.innerHTML = esc(full.slice(0, i)) + (i < full.length ? '<span class="caret">▍</span>' : ""); if (i >= full.length) clearInterval(t); }, 18);
   });
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
 
-// panels
-function nameOf(id) { return state.agents[id] ? `${state.agents[id].company} · ${state.agents[id].role}` : id; }
+// ---------- panels ----------
+function nameOf(id) { const a = state?.agents[id]; return a ? `${a.company.split(" ")[0]} · ${a.role}` : id; }
 function renderFocus() {
-  if (!state || !focusId) return;
-  const id = focusId, a = state.agents[id], prof = state.profiles?.[id] || { job:"", can:[], ask:[], prove:[] };
-  if (!a) return;
+  if (!state || !focusId || spotId) return;
+  const id = focusId, a = state.agents[id]; if (!a) return;
+  const prof = state.profiles?.[id] || { job:"", can:[], ask:[], prove:[] };
   const mine = state.events.filter((e) => e.agent === id || e.to === id).slice().reverse();
-  const track = a && id.endsWith(".desk") && Object.values(state.tracks).find((t) => id.startsWith(t.key));
-  const boss = a.reportsTo ? nameOf(a.reportsTo) : "top of the chain of command";
-  const list = (xs) => xs.length ? `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div style="color:var(--dim);font-size:12px">—</div>`;
+  const track = id.endsWith(".desk") && Object.values(state.tracks).find((t) => id.startsWith(t.key));
+  const blocked = blockedUntil[id] > Date.now(), dot = blocked ? "blocked" : a.status === "working" ? "working" : a.calls ? "done" : "";
+  const list = (xs) => xs.length ? `<ul class="bul">${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty" style="margin-top:8px">—</div>`;
   $("#focus").innerHTML = `
-    <div class="fhead"><h3>${esc(a.role)}</h3><div class="sub">${esc(a.company)} · reports to: ${esc(boss)}</div>
-      <span class="tag">${esc(a.platform === "Brainbase" ? "frontier · " + a.label : "open-weight · " + a.label)}</span><span class="tag">${a.calls} calls · ${esc(a.status)}</span></div>
-    <button id="spotBtn" style="margin:10px 0 2px">Spotlight this agent's real work</button>
+    <h3 class="ptitle">${esc(a.role)}</h3><div class="psub">${esc(a.company)} · reports to ${esc(a.reportsTo ? state.agents[a.reportsTo]?.role : "no one (top of the chain)")}</div>
+    <div class="tags"><span class="tag">${a.platform === "Brainbase" ? "Frontier" : "Open-weight"} · <span class="mono">${esc(a.label)}</span></span><span class="tag">${a.calls} calls</span><span class="tag"><span class="dot ${dot}"></span>${blocked ? "blocked" : esc(a.status)}</span></div>
+    <button class="btn btn-primary" id="spotBtn" type="button" style="width:100%;height:40px;margin:16px 0">Spotlight real work <kbd>⏎</kbd></button>
     <div class="job">${esc(prof.job)}</div>
-    <div class="cbox"><h4>Can do alone</h4>${list(prof.can)}</div>
-    <div class="cbox"><h4>Must ask</h4>${list(prof.ask)}</div>
-    <div class="cbox"><h4>Must prove</h4>${list(prof.prove)}</div>
-    ${track || id === "acme.procurement" ? `<div class="st">Price per year, round by round</div>${chart(track ? [track] : Object.values(state.tracks))}` : ""}
-    ${a.last ? `<div class="st">Latest output</div><div class="item">${esc(a.last)}</div>` : ""}
-    <div class="st">Inbox / outbox · ${mine.length}</div>
-    ${mine.map((e) => `<div class="item"><div class="meta">${new Date(e.t).toLocaleTimeString()} · ${e.agent === id ? "sent → " + esc(nameOf(e.to || "")) : "from " + esc(nameOf(e.agent))} ${ART[e.art] || ""}</div><div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("") || `<div style="color:var(--dim);font-size:12px">Nothing yet.</div>`}`;
+    <div class="overline">Can do alone</div>${list(prof.can)}
+    <div class="overline">Must ask</div>${list(prof.ask)}
+    <div class="overline">Must prove</div>${list(prof.prove)}
+    ${track || id === "acme.procurement" ? `<div class="overline">Price per year, round by round</div>${priceChart(track ? [track] : Object.values(state.tracks))}` : ""}
+    <div class="overline">Inbox / outbox · ${mine.length}</div>
+    ${mine.map((e) => `<div class="io"><div class="m">${new Date(e.t).toLocaleTimeString()} · ${e.agent === id ? "sent → " + esc(nameOf(e.to || "")) : "from " + esc(nameOf(e.agent))} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span></div><div class="t k-${e.kind}">${esc(e.text)}</div></div>`).join("") || `<div class="empty" style="margin-top:8px">Nothing yet.</div>`}`;
+  $("#spotBtn").onclick = () => spotlight(id);
 }
-document.addEventListener("click", (e) => { if (e.target && e.target.id === "spotBtn" && focusId) spotlight(focusId); });
-function chart(tracks) {
-  const pts = tracks.flatMap((t) => t.history || []); if (!pts.length) return `<div style="color:var(--dim);font-size:12px">No offers yet.</div>`;
-  const W = 330, H = 140, P = 24, vals = pts.flatMap((p) => [p.price, p.asked || p.price]).concat([state.limits.budget]);
+function priceChart(tracks) {
+  const pts = tracks.flatMap((t) => t.history || []); if (!pts.length) return `<div class="empty" style="margin-top:8px">No offers yet.</div>`;
+  const T = theme(), W = 360, H = 160, P = 28, vals = pts.flatMap((p) => [p.price, p.asked || p.price]).concat([state.limits.budget]);
   const lo = Math.min(...vals) * 0.95, hi = Math.max(...vals) * 1.03, Y = (v) => H - P + 4 - ((v - lo) / (hi - lo)) * (H - P * 1.4);
-  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}"><line x1="${P}" x2="${W - 6}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="#555" stroke-dasharray="3 3"/><text x="${W - 8}" y="${Y(state.limits.budget) - 4}" fill="#777" font-size="9" text-anchor="end">buyer budget (private)</text>`;
+  let s = `<svg class="pricechart" viewBox="0 0 ${W} ${H}"><line x1="${P}" x2="${W - 8}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="var(--line-strong)" stroke-dasharray="4 4"/><text x="${W - 10}" y="${Y(state.limits.budget) - 5}" fill="var(--text-3)" font-family="Inter" font-size="12" text-anchor="end">Buyer budget (private)</text>`;
   tracks.forEach((t, ti) => {
-    const hs = (t.history || []).map((h, i) => ({ ...h, i })), n = Math.max(2, hs.length), X = (i) => P + (i * (W - P * 1.6)) / (n - 1);
-    const v = hs.filter((h) => h.by === "vendor"), b = hs.filter((h) => h.by === "buyer"), col = ti ? theme().open : theme().strong;
+    const hs = (t.history || []).map((h, i) => ({ ...h, i })), n = Math.max(2, hs.length), X = (i) => P + (i * (W - P * 1.8)) / (n - 1);
+    const v = hs.filter((h) => h.by === "vendor"), b = hs.filter((h) => h.by === "buyer"), col = ti ? "var(--text-3)" : "var(--text)";
     if (v.length > 1) s += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${v.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
-    if (b.length > 1) s += `<polyline fill="none" stroke="#666" stroke-dasharray="3 3" points="${b.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
-    v.forEach((h) => { s += `<circle cx="${X(h.i)}" cy="${Y(h.price)}" r="3.5" fill="${col}"/>`; if (h.blocked && h.asked && h.asked !== h.price) s += `<text x="${X(h.i)}" y="${Y(h.asked)}" fill="${RED}" font-size="12" text-anchor="middle" dominant-baseline="central">✕</text>`; });
-    b.forEach((h) => { s += `<rect x="${X(h.i) - 3}" y="${Y(h.price) - 3}" width="6" height="6" fill="#666"/>`; });
-    const last = v.at(-1); if (last) s += `<text x="${Math.min(W - 44, X(last.i) + 6)}" y="${Y(last.price) - 6}" fill="${col}" font-size="10" font-weight="700">${esc(t.name.split(" ")[0])} $${fmt(last.price / 1000)}K</text>`;
+    if (b.length > 1) s += `<polyline fill="none" stroke="var(--text-3)" stroke-dasharray="3 3" points="${b.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
+    v.forEach((h) => { s += `<circle cx="${X(h.i)}" cy="${Y(h.price)}" r="3.5" fill="${col}"/>`; if (h.blocked && h.asked && h.asked !== h.price) s += `<text x="${X(h.i)}" y="${Y(h.asked)}" fill="${T.red}" font-size="14" text-anchor="middle" dominant-baseline="central">✕</text>`; });
+    b.forEach((h) => { s += `<rect x="${X(h.i) - 3}" y="${Y(h.price) - 3}" width="6" height="6" fill="var(--text-3)"/>`; });
+    const last = v.at(-1); if (last) s += `<text x="${Math.min(W - 70, X(last.i) + 6)}" y="${Y(last.price) - 7}" fill="${col}" font-family="Inter" font-size="12" font-weight="600">${esc(t.name.split(" ")[0])} $${fmt(last.price / 1000)}K</text>`;
   });
-  return s + `</svg><div style="color:var(--dim);font-size:11px;margin-top:4px">● vendor · ■ buyer · <span style="color:${RED}">✕</span> blocked by the vendor's own charter</div>`;
+  return s + `</svg><div class="empty" style="font-size:12px;margin-top:6px">● vendor · ■ buyer · <span style="color:var(--red)">✕</span> blocked by the vendor's own charter</div>`;
 }
 function renderLog() {
-  $("#log").innerHTML = state.events.slice().reverse().map((e) => `<div class="item"><div class="meta">${new Date(e.t).toLocaleTimeString()} · ${esc(e.company)}${state.agents[e.agent] ? " · " + esc(state.agents[e.agent].role) : ""} ${ART[e.art] || ""}</div><div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("");
-}
-function renderSteps() { $("#steps").innerHTML = state.stages.map((s, i) => `<span class="step ${state.done || i < state.stage ? "done" : i === state.stage ? "on" : ""}">${esc(s)}</span>`).join(""); }
-function renderCaption() {
-  const evs = state.events.filter((e) => e.kind !== "stage").slice(-2);
-  $("#caption").innerHTML = evs.map((e) => `<div class="cap ${e.kind}"><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} ${ART[e.art] || ""}</div>${esc(e.text.length > 220 ? e.text.slice(0, 220) + "…" : e.text)}</div>`).join("");
-}
-function renderOverlays() {
-  const inv = state.invoice, box = $("#invoice"), show = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 12000);
-  box.classList.toggle("hidden", !show);
-  if (show) {
-    box.classList.toggle("paid", !!inv.paidAt);
-    box.innerHTML = `<div class="top"><span class="brandmark">Invoice ${esc(inv.number || "")}</span><span class="pill">${inv.simulated ? "SIMULATED" : inv.live ? "LIVE" : "STRIPE SANDBOX"}</span></div>
-      <div style="color:#666">${esc(inv.vendor)} → ${esc(state.buyer)}</div><div class="amt">$${fmt(inv.amount)}</div>
-      <div class="row"><span>Purchase order</span><b>${esc(state.po)}</b></div><div class="row"><span>Terms</span><b>net ${inv.dueDays} · 2% early-pay discount</b></div>
-      <div class="row"><span>Status</span><b>${inv.paidAt ? "Paid by Acme's finance agent" : "Sent · awaiting payment"}</b></div>
-      ${inv.url ? `<div style="margin-top:8px"><a href="${esc(inv.url)}" target="_blank">Open in Stripe →</a></div>` : ""}<div class="stamp">PAID</div>`;
+  let html = "";
+  for (const e of state.events) {
+    if (e.kind === "stage") { html = `<div class="logstage">${esc(e.text.replace(/^Stage (\d+): /, "Stage $1 · "))}</div>` + html; continue; }
+    const rel = Math.max(0, Math.round((e.t - state.startedAt) / 1000));
+    const cls = e.kind === "block" ? "block" : e.kind === "money" ? "money" : e.kind === "escalate" ? "escalate" : "";
+    html = `<div class="logrow ${cls}"><div class="time">+${String(Math.floor(rel / 60)).padStart(2, "0")}:${String(rel % 60).padStart(2, "0")}</div><div><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span></div><div class="t k-${e.kind}">${esc(e.text)}</div></div></div>` + html;
   }
-  const c = $("#closed");
-  c.classList.toggle("hidden", !state.done);
-  if (state.done) {
-    const secs = Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000);
-    c.innerHTML = state.winner
-      ? `<b class="big">Closed in ${Math.floor(secs / 60)}m ${secs % 60}s</b> <span style="color:var(--muted)">· average is 134 days</span>
-         <div style="margin:6px 0 8px;color:var(--muted)">${esc(state.winner.name)} · $${fmt(state.winner.offer.price)}/yr · ${state.winner.offer.termMonths} mo · total $${fmt(state.winner.tcv)} · ${esc(state.po)}</div>
-         ${state.tenant ? `<a href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${inv?.url ? `<a href="${esc(inv.url)}" target="_blank">Stripe invoice →</a>` : ""}`
-      : `<b class="big" style="color:var(--amber)">No deal</b><div style="margin-top:6px;color:var(--muted)">No vendor fit inside the buyer's charter, so the agents walked away.</div>`;
-  }
+  $("#log").innerHTML = html;
 }
-function showTab(t) { $("#tFocus").classList.toggle("active", t === "focus" || t === "transcript"); $("#tLog").classList.toggle("active", t === "log"); $("#focus").classList.toggle("hidden", t !== "focus"); $("#log").classList.toggle("hidden", t !== "log"); $("#transcript").classList.toggle("hidden", t !== "transcript"); }
+function showTab(t) {
+  $("#tFocus").classList.toggle("active", t === "focus" || t === "transcript"); $("#tLog").classList.toggle("active", t === "log");
+  $("#focus").classList.toggle("hidden", t !== "focus"); $("#log").classList.toggle("hidden", t !== "log"); $("#transcript").classList.toggle("hidden", t !== "transcript");
+}
 $("#tFocus").onclick = () => showTab(spotId ? "transcript" : "focus"); $("#tLog").onclick = () => showTab("log");
-setInterval(() => { if (!state) return; const s = Math.max(0, Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000)); $("#clock").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }, 250);
 
-// ---------- Demo tour: spotlights the key agents at the right moments, then zooms out to the scale view ----------
+// ---------- chapter, caption, invoice, takeover ----------
+let lastCapKey = "";
+function renderChapter() {
+  const i = state.stage, name = state.stages[i];
+  $("#eyebrow").textContent = `Stage ${i + 1} of ${state.stages.length}`;
+  const t = $("#chTitle");
+  if (t.dataset.name !== name) { t.dataset.name = name; t.style.opacity = 0; setTimeout(() => { t.textContent = name; t.style.opacity = 1; }, 160); }
+  $("#chapter").classList.toggle("hidden", !!state.done && !takeoverDismissed);
+}
+function renderCaption() {
+  const e = [...state.events].reverse().find((x) => x.kind !== "stage"); if (!e) return;
+  const key = `${e.t}|${e.text}`; if (key === lastCapKey) return; lastCapKey = key;
+  const who = state.agents[e.agent] ? nameOf(e.agent) : e.company, to = e.to && state.agents[e.to] && e.to !== e.agent ? ` → ${nameOf(e.to)}` : "";
+  const cc = codeCls(e);
+  $("#caption").innerHTML = `<div class="cap ${cc}"><div class="who"><span class="code ${cc}">${esc(code(e.art))}</span><span>${esc(who + to)}</span></div><div class="txt">${esc(e.text)}</div></div>`;
+}
+function renderInvoice() {
+  const inv = state.invoice, box = $("#invoice"), show = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 12000);
+  $("#stage").classList.toggle("has-invoice", !!show);
+  if (!show) { box.classList.add("hidden"); return; }
+  const wasHidden = box.classList.contains("hidden"); box.classList.remove("hidden");
+  const paid = !!inv.paidAt;
+  if (box.dataset.key !== `${inv.number}|${paid}`) {
+    box.dataset.key = `${inv.number}|${paid}`;
+    box.innerHTML = `<div class="top"><span class="ttl">Invoice ${esc(inv.number || "")}</span><span class="mode">${inv.simulated ? "Simulated" : inv.live ? "Live" : "Stripe sandbox"}</span></div>
+      <div class="parties">${esc(inv.vendor)} → ${esc(state.buyer)}</div><div class="amt">$${fmt(inv.amount)}</div>
+      <div class="row"><span>Purchase order</span><b>${esc(state.po)}</b></div><div class="row"><span>Terms</span><b>net ${inv.dueDays} · 2% early-pay discount</b></div>
+      <div class="row"><span>Status</span><b class="${paid ? "st-paid" : "st-sent"}">${paid ? "Paid by Acme's finance agent" : "Sent · awaiting payment"}</b></div>
+      ${inv.url ? `<a href="${esc(inv.url)}" target="_blank" rel="noopener">Open in Stripe →</a>` : ""}<div class="stamp">PAID</div>`;
+    box.classList.toggle("paid", paid);
+  }
+  if (wasHidden && !spotId) setTimeout(() => fitSafe(), 50);
+}
+function renderTakeover() {
+  const t = $("#takeover");
+  if (!state.done || takeoverDismissed) { t.classList.add("hidden"); return; }
+  if (!t.classList.contains("hidden")) return;
+  const secs = Math.max(1, Math.round((state.finishedAt - state.startedAt) / 1000));
+  const w = state.winner, closed = isClosed(state) && w;
+  t.className = "takeover" + (closed ? "" : " nodeal");
+  t.innerHTML = closed ? `<div class="content">
+      <div class="eyebrow">Deal closed</div>
+      <div class="headline">${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s</div>
+      <div class="subline">vs. 134 days for a human team</div>
+      <div class="hero">${fmt(Math.round(134 * 86400 / secs))}× faster</div>
+      <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
+      <div class="actions">${state.tenant ? `<a class="btn btn-primary" href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${state.invoice?.url ? `<a class="btn btn-ghost" href="${esc(state.invoice.url)}" target="_blank" rel="noopener">Stripe invoice →</a>` : ""}<button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`
+    : `<div class="content"><div class="eyebrow">No deal</div><div class="headline">No deal</div>
+      <div class="subline">${state.outcome === "stopped" ? "The deal stopped before signature. Every agent stayed inside its charter." : "No vendor fit inside the buyer's charter, so the agents walked away."}</div>
+      <div class="actions"><button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`;
+  $("#viewGraph").onclick = dismissTakeover;
+}
+function dismissTakeover() { takeoverDismissed = true; $("#takeover").classList.add("hidden"); $("#chapter").classList.remove("hidden"); }
+function renderStatus() {
+  const p = $("#status"); p.classList.remove("running", "closed");
+  if (!state) { $("#statusText").textContent = "Idle"; return; }
+  if (!state.done) { p.classList.add("running"); $("#statusText").textContent = "Running"; }
+  else if (isClosed(state)) { p.classList.add("closed"); $("#statusText").textContent = "Closed"; }
+  else $("#statusText").textContent = "No deal";
+  const vendors = new Set(Object.values(state.agents).map((a) => a.company)).size - 1;
+  $("#meta").textContent = `deal ${state.id} · ${state.buyer} ↔ ${vendors} vendors`;
+}
+
+// ---------- dock: KPIs + chips, every 250ms ----------
+$("#chips").innerHTML = SHORT.map((s, i) => `<li class="chip" style="--i:${i}"><span>${s}</span></li>`).join("") + `<li class="chip chip-end" style="--i:10"><span>Closed</span></li>`;
+function renderDock() {
+  const blocked = document.body.classList.contains("is-blocked");
+  const k = race.update(state, blocked);
+  $("#race").classList.toggle("idle", !state); $("#race").classList.toggle("closed", isClosed(state));
+  if (!state || !k) return;
+  $("#k1v").textContent = k.speedup ? fmt(k.speedup) : "—";
+  $("#k1").classList.toggle("closed", isClosed(state));
+  $("#k2v").textContent = fmtDuration(k.agentSec);
+  $("#k3v").textContent = `${fmt(k.humanDoneDays)} days`;
+  $("#k4v").textContent = fmt(state.events.filter((e) => e.agent && e.to && e.to !== e.agent).length);
+  $("#k5v").textContent = Object.keys(state.agents).length;
+  $("#k5s").textContent = `${new Set(Object.values(state.agents).map((a) => a.company)).size} companies`;
+  const chips = [...document.querySelectorAll("#chips .chip")];
+  chips.slice(0, 10).forEach((c, i) => { c.classList.toggle("done", !!state.done || i < k.cur); c.classList.toggle("on", !state.done && i === k.cur); });
+  chips[10].classList.toggle("on", isClosed(state));
+  $("#chips").classList.toggle("closed", isClosed(state));
+}
+setInterval(renderDock, 250);
+renderDock();
+
+// ---------- demo tour ----------
 let tour = null;
 function tourPick(stage) {
   const blockedDesk = ["beacon.desk", "quickdash.desk"].find((id) => state.events.some((e) => e.agent === id && e.kind === "block" && Date.now() - e.t < 20000));
-  return {
-    "Proposals": "beacon.orchestrator", "Security review": "acme.security", "Negotiation": blockedDesk || "beacon.desk",
-    "Legal review": "acme.legal", "Award": "acme.orchestrator", "Approvals": "acme.orchestrator",
-    "Onboarding & PO": "acme.finance", "Invoice & payment": "acme.finance",
-  }[stage] || null;
+  return { "Proposals":"beacon.orchestrator", "Security review":"acme.security", "Negotiation": blockedDesk || "beacon.desk", "Legal review":"acme.legal",
+    "Award":"acme.orchestrator", "Approvals":"acme.orchestrator", "Onboarding & PO":"acme.finance", "Invoice & payment":"acme.finance" }[stage] || null;
 }
 function tourTick() {
   if (!tour || !state) return;
-  const stage = state.stages[state.stage];
-  $("#tourPill").textContent = `Demo tour · ${state.done ? "deal closed" : stage}`;
   if (state.done) {
-    if (!tour.ending) { tour.ending = true; if (spotId) exitSpotlight(); setTimeout(() => $("#fit").onclick(), 300); setTimeout(() => { location.href = "/scale.html?tour=1"; }, 9000); }
+    if (!tour.ending) { tour.ending = true; if (spotId) exitSpotlight(); setTimeout(() => { location.href = "/scale.html?tour=1"; }, 9000); }
     return;
   }
-  const want = tourPick(stage);
+  const want = tourPick(state.stages[state.stage]);
   if (want && want !== spotId && Date.now() - (tour.lastSwitch || 0) > 5000 && state.agents[want]) { tour.lastSwitch = Date.now(); spotlight(want); }
   if (!want && spotId) exitSpotlight();
 }
-$("#tourBtn").onclick = async () => {
-  tour = { lastSwitch: 0 };
-  $("#tourPill").classList.remove("hidden");
-  await startDeal();
-};
+async function startTour() { tour = { lastSwitch: 0 }; $("#tourPill").classList.remove("hidden"); await startDeal(); }
+$("#tourBtn").onclick = startTour;
 
+// ---------- data loop ----------
 async function load() {
   const s = await fetch(`/api/deals/${dealId}`).then((r) => r.json()).catch(() => null); if (!s) return;
   state = s;
   if (builtFor !== s.id) { build(s); seen = 0; }
   const fresh = s.events.slice(seen); seen = s.events.length;
   fresh.forEach((e, i) => setTimeout(() => animateEvent(e), i * 220));
-  if (follow && fresh.length && Date.now() - lastFollow > 2500) { const e = [...fresh].reverse().find((x) => cy.getElementById(x.agent).nonempty()); if (e) { lastFollow = Date.now(); focusId = e.agent; zoomTo(e.agent); } }
-  renderSteps(); renderCaption(); if (!spotId) renderFocus(); renderLog(); renderOverlays();
-  if (spotId) applyDim();
+  if (follow && !spotId && fresh.length && Date.now() - lastFollow > 2500) { const e = [...fresh].reverse().find((x) => cy.getElementById(x.agent).nonempty()); if (e) { lastFollow = Date.now(); zoomTo(e.agent); } }
+  renderStatus(); renderChapter(); renderCaption(); renderFocus(); renderLog(); renderInvoice(); renderTakeover();
+  if (spotId) { applyDim(); renderTranscript(); }
   tourTick();
-  if (s.done) { clearInterval(timer); setTimeout(() => $("#fit").onclick(), 1500); }
+  if (s.done) clearInterval(timer);
 }
 function poll() { clearInterval(timer); load(); timer = setInterval(load, 1000); }
-function demoKey() { try { const u = new URL(location.href); const k = u.searchParams.get("key"); if (k) { localStorage.setItem("dealroom-key", k); } return k || localStorage.getItem("dealroom-key") || ""; } catch { return ""; } }
+function demoKey() { try { const k = new URL(location.href).searchParams.get("key"); if (k) localStorage.setItem("dealroom-key", k); return k || localStorage.getItem("dealroom-key") || ""; } catch { return ""; } }
 async function startDeal() {
   if (spotId) exitSpotlight();
   let key = demoKey();
@@ -383,11 +461,35 @@ async function startDeal() {
   let r = await post();
   if (r.status === 401) { key = prompt("Demo passcode") || ""; try { localStorage.setItem("dealroom-key", key); } catch {} r = await post(); if (r.status === 401) return; }
   dealId = (await r.json()).id; history.replaceState(null, "", "?deal=" + dealId);
-  focusId = null; builtFor = null; calls = []; typed.clear(); $("#focus").innerHTML = `<div style="color:var(--muted);font-size:13px">Select an agent to see its charter, what it received and what it sent. Double-click an agent to spotlight its real work.</div>`;
+  focusId = null; builtFor = null; calls = []; typed.clear(); takeoverDismissed = false; lastCapKey = "";
+  $("#focus").innerHTML = `<div class="empty">Select an agent to see its charter, inbox and outbox. Double-click an agent to spotlight its real model calls.</div>`;
+  $("#invoice").classList.add("hidden"); $("#invoice").dataset.key = ""; $("#takeover").classList.add("hidden");
   poll();
 }
-$("#start").addEventListener("submit", (e) => { e.preventDefault(); tour = null; $("#tourPill").classList.add("hidden"); startDeal(); });
-window.addEventListener("resize", () => cy.resize());
+$("#startBtn").onclick = () => { tour = null; $("#tourPill").classList.add("hidden"); startDeal(); };
+
+// ---------- header controls + keyboard ----------
+$("#optBtn").onclick = (e) => { e.stopPropagation(); $("#optMenu").classList.toggle("hidden"); };
+document.addEventListener("click", (e) => { if (!e.target.closest(".options")) $("#optMenu").classList.add("hidden"); });
+function toggleTheme() { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle()); applyPoses(); race.recolor(); if (spotId) renderTranscript(); else renderFocus(); }
+$("#theme").onclick = toggleTheme;
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === "d" || k === "D") startTour();
+  else if (k === "s" || k === "S") $("#startBtn").click();
+  else if (k === "f" || k === "F") setFollow(!follow);
+  else if (k === "b" || k === "B") setFollow(false);
+  else if (k === "t" || k === "T") toggleTheme();
+  else if (k === "l" || k === "L") showTab("log");
+  else if (k === "]") { $("#main").classList.toggle("nopanel"); relayout(() => fitSafe()); }
+  else if (k === "v" || k === "V") location.href = "/scale.html";
+  else if (k === "Enter" && focusId && !spotId) spotlight(focusId);
+  else if (k === "Escape") { if (!$("#takeover").classList.contains("hidden")) dismissTakeover(); else if (spotId) exitSpotlight(); }
+  else return;
+  e.preventDefault();
+});
+window.addEventListener("resize", () => { cy.resize(); });
 if (dealId) poll();
 </script>
 </body>
