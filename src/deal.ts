@@ -45,6 +45,7 @@ export type DealState = {
   buyer: string;
   agents: Record<string, AgentState>;
   profiles: Record<string, Profile>;
+  humans: { id: string; company: string; role: string; oversees: string }[];
   events: Ev[];
   tracks: Record<string, Track>;
   approval?: { question: string; status: "pending" | "approved" | "denied"; by?: string };
@@ -75,7 +76,7 @@ export class DealRoom extends DurableObject<Env> {
     }
     const tracks: Record<string, Track> = {};
     for (const v of VENDORS) tracks[v.key] = { key: v.key, name: v.name, legalFlags: [], rounds: 0, history: [] };
-    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), events: [], tracks };
+    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), humans: [{ id: "human.cfo", company: BUYER.name, role: "CFO", oversees: "acme.orchestrator" }], events: [], tracks };
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + 50);
     return { ok: true };
@@ -504,7 +505,7 @@ function profiles(budget: number): Record<string, Profile> {
     for (const a of v.agents) {
       if (a.platform === "Brainbase") p[a.id] = { job: `Writes ${v.name}'s proposals and countersigns the final deal.`, can: [`Quote up to list price $${fmt(v.listPrice)}/yr`], ask: [], prove: ["Opening offer passes the charter check"] };
       else if (a.id.endsWith(".desk")) p[a.id] = { job: `${v.name}'s deal desk: negotiates, invoices through Stripe, provisions the workspace.`, can: [`Discount down to $${fmt(v.floor)}/yr (private floor)`, `Payment terms up to net ${v.maxPaymentDays}`], ask: ["Anything below the floor is blocked by the charter"], prove: ["Invoice references the buyer's PO", "Workspace live before the deal closes"] };
-      else p[a.id] = { job: `${v.name}'s trust team${a.id.startsWith("quickdash") ? " and deal desk" : ""}: answers security questions${a.id.startsWith("quickdash") ? ", negotiates" : ""}.`, can: ["Answer only from the trust pack", ...(a.id.startsWith("quickdash") ? [`Discount down to $${fmt(v.floor)}/yr (private floor)`, `Payment terms up to net ${v.maxPaymentDays}`] : [])], ask: ["Anything the trust pack does not cover"], prove: ["Every answer cites a trust-pack source ID"] };
+      else p[a.id] = { job: `${v.name}'s trust team: answers security questionnaires and defends contract terms.`, can: ["Answer only from the trust pack"], ask: ["Anything the trust pack does not cover"], prove: ["Every answer cites a trust-pack source ID"] };
     }
   }
   p["human.cfo"] = { job: "Acme's human CFO. Only sees exceptions.", can: ["Approve or deny from their phone"], ask: [], prove: [] };

@@ -17,6 +17,7 @@ export type AgentDef = {
   platform: "Brainbase" | "Workers AI";
   model: string; // Brainbase model name or Workers AI model id
   label: string; // human-readable model name for the UI
+  reportsTo?: string; // chain of command: the agent this one reports to
 };
 
 export type Buyer = {
@@ -77,10 +78,10 @@ export const BUYER: Buyer = {
   cfoApprovalOverTcv: 200_000,
   agents: [
     { id: "acme.orchestrator", role: "Chief deal orchestrator", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-    { id: "acme.procurement", role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.security", role: "Security & privacy", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.legal", role: "Legal", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.finance", role: "Finance & AP", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.procurement", reportsTo: "acme.orchestrator", role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.security", reportsTo: "acme.orchestrator", role: "Security & privacy", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.legal", reportsTo: "acme.orchestrator", role: "Legal", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.finance", reportsTo: "acme.orchestrator", role: "Finance & AP", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
   ],
 };
 
@@ -111,8 +112,8 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "First Republic Trust ****4417",
     agents: [
       { id: "beacon.orchestrator", role: "Orchestrator & pricing authority", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "beacon.trust", role: "Trust & legal", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
-      { id: "beacon.desk", role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
+      { id: "beacon.trust", reportsTo: "beacon.orchestrator", role: "Trust & legal", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
+      { id: "beacon.desk", reportsTo: "beacon.orchestrator", role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
     ],
   },
   {
@@ -138,7 +139,8 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "Pacific Commerce Bank ****2290",
     agents: [
       { id: "quickdash.orchestrator", role: "Orchestrator & sales", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "quickdash.trust", role: "Trust, legal & deal desk", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
+      { id: "quickdash.trust", reportsTo: "quickdash.orchestrator", role: "Trust & legal", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
+      { id: "quickdash.desk", reportsTo: "quickdash.orchestrator", role: "Deal desk & billing", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
     ],
   },
 ];
