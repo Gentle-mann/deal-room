@@ -84,4 +84,6 @@ brainbase, claude, anthropic, cloudflare-workers, workers-ai, durable-objects, s
 
 ## Video
 
-Record the run with Cmd+Shift+5 (about 4 to 5 minutes), trim it to about 3 minutes, upload it to YouTube as Unlisted, and paste the link here.
+Demo video (Loom): https://www.loom.com/share/cf1eb029f0e242f294725dd14144ef50
+
+Devpost's video field only accepts YouTube, Vimeo or Youku links. Either download the video from Loom and upload it to YouTube as Unlisted for that field, or add the Loom link under "Try it out" and in the story.
