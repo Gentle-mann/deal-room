@@ -48,13 +48,13 @@ export async function waiJson<T = any>(env: AiEnv, model: string, system: string
 // Falls back to a Workers AI model if Brainbase is off, fails, or is too slow, so the live demo never stalls.
 export async function brainbaseDecide(
   env: AiEnv,
-  opts: { title: string; instructions: string; input: string; model: string; timeoutMs?: number; entrypoint?: string; onStart?: (threadId: string) => void; onTick?: (threadId: string) => Promise<void> },
+  opts: { title: string; instructions: string; input: string; model?: string; harness?: string; timeoutMs?: number; entrypoint?: string; onStart?: (threadId: string) => void; onTick?: (threadId: string) => Promise<void> },
 ): Promise<{ text: string; via: "Brainbase" | "fallback"; threadId?: string; seconds: number }> {
   const t0 = Date.now();
   const fallback = async () => {
-    const text = await wai(env, "@cf/openai/gpt-oss-120b", opts.instructions, opts.input).catch(() =>
-      wai(env, "@cf/meta/llama-3.3-70b-instruct-fp8-fast", opts.instructions, opts.input),
-    );
+    const text = await wai(env, "@cf/openai/gpt-oss-120b", opts.instructions, opts.input)
+      .catch(() => wai(env, "@cf/meta/llama-3.3-70b-instruct-fp8-fast", opts.instructions, opts.input))
+      .catch(() => ""); // Workers AI can be out of quota too: an empty reply falls back to each step's safe default
     return { text, via: "fallback" as const, seconds: (Date.now() - t0) / 1000 };
   };
   if (env.BRAINBASE_OFF === "1" || !env.BRAINBASE_API_KEY) return fallback();
@@ -64,7 +64,7 @@ export async function brainbaseDecide(
       method: "POST",
       headers: H,
       body: JSON.stringify({
-        agent: { harness: "claude_code", model: opts.model, machine_kind: "cloudflare", title: opts.title, instructions: opts.instructions, ...(opts.entrypoint ? { entrypoint: opts.entrypoint } : {}) },
+        agent: { harness: opts.harness ?? "claude_code", ...(opts.model ? { model: opts.model } : {}), machine_kind: "cloudflare", title: opts.title, instructions: opts.instructions, ...(opts.entrypoint ? { entrypoint: opts.entrypoint } : {}) },
         input: opts.input,
       }),
     });

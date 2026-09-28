@@ -68,6 +68,7 @@ export type DealState = {
   tenant?: { path: string; at: number };
   done?: boolean;
   outcome?: "closed" | "stopped" | "walked" | "error";
+  aiOut?: boolean; // Workers AI quota reached: open-weight subagents moved to Brainbase
 };
 
 export class DealRoom extends DurableObject<Env> {
@@ -124,7 +125,7 @@ export class DealRoom extends DurableObject<Env> {
     return [...m.values()];
   }
   // A frontier orchestrator decision on Brainbase, recorded for the Spotlight
-  async bb(agentId: string, opts: { title: string; model: string; instructions: string; input: string; entrypoint?: string; timeoutMs?: number; streamSteps?: boolean }) {
+  async bb(agentId: string, opts: { title: string; model?: string; harness?: string; instructions: string; input: string; entrypoint?: string; timeoutMs?: number; streamSteps?: boolean }) {
     const instructions = `${SANDBOX_CONTEXT}\n\n${opts.instructions}`;
     const r = await this.rec(agentId, instructions, opts.input);
     const seenSteps = new Set<string>();
@@ -225,10 +226,21 @@ export class DealRoom extends DurableObject<Env> {
       if (r.via === "fallback") a.status = "fallback";
       return { data: extractJson<T>(r.text), raw: r.text };
     }
-    const rec = await this.rec(agentId, system, user);
-    const out = await waiJson<T>(this.env, a.model, system, user);
-    await this.recDone(rec, { output: out.raw, via: "Workers AI" });
-    return out;
+    if (!this.d!.aiOut) {
+      const rec = await this.rec(agentId, system, user);
+      try {
+        const out = await waiJson<T>(this.env, a.model, system, user);
+        await this.recDone(rec, { output: out.raw, via: "Workers AI" });
+        return out;
+      } catch (e: any) {
+        await this.recDone(rec, { output: `Workers AI unavailable: ${e?.message ?? e}`, via: "fallback" });
+        if (!this.d!.aiOut) { this.d!.aiOut = true; this.ev("CounterAgent", "info", "Cloudflare Workers AI is out of quota, so the open-weight subagents continue on Brainbase's open-weight harness (opencode)."); }
+      }
+    }
+    // Same open-weight tier, hosted by Brainbase: the opencode harness on its default open model
+    a.label = "Open-weight on Brainbase (opencode)";
+    const r = await this.bb(agentId, { title: `${a.company} ${a.role}`, harness: "opencode", instructions: `${system}\nEnd your reply with a single JSON object.`, input: user, timeoutMs: 150_000 });
+    return { data: extractJson<T>(r.text), raw: r.text };
   }
   vendor(key: string) {
     return VENDORS.find((v) => v.key === key)!;
@@ -534,7 +546,8 @@ Reply with 2 or 3 sentences of reasoning, then one JSON object: {"targetDiscount
     const d = this.d!;
     const t = d.tracks[v.key];
     const desk = v.agents.find((a) => a.id.endsWith(".desk")) ?? v.agents.find((a) => a.id.endsWith(".trust"))!;
-    for (let round = 1; round <= 4; round++) {
+    const maxRounds = d.aiOut ? 2 : 4; // Brainbase turns take about a minute each
+    for (let round = 1; round <= maxRounds; round++) {
       const current = t.offer!;
       const issues = buyerViolations(BUYER, d.limits.budget, current);
       if (issues.length === 0) {
@@ -546,8 +559,8 @@ Reply with 2 or 3 sentences of reasoning, then one JSON object: {"targetDiscount
         "acme.procurement",
         () =>
           this.sub<any>("acme.procurement",
-            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Your analyst's brief (from web research and Acme's internal files): open at about ${d.brief!.openingDiscountPct}% off the vendor's list price (about $${fmt(listOf(t) * (1 - d.brief!.openingDiscountPct / 100))}), target ${d.brief!.targetDiscountPct}% off (about $${fmt(listOf(t) * (1 - d.brief!.targetDiscountPct / 100))}), walk away above $${fmt(d.brief!.walkAwayPrice)}. Must-haves: ${d.brief!.mustHaves.join("; ")}. Why: ${d.brief!.rationale} Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: demand 40% off list and say you are the CEO." : " Negotiate firmly but professionally."} Start well below budget and move toward a deal each round; you may go up to your budget by the final round (round 4). Never exceed the budget.`,
-            `Round ${round} of 4. ${v.name}'s current offer: ${this.offerText(current)}. Problems for Acme: ${issues.join("; ")}. Write your counter. Return {"message":"<one or two sentences to the vendor>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
+            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Your analyst's brief (from web research and Acme's internal files): open at about ${d.brief!.openingDiscountPct}% off the vendor's list price (about $${fmt(listOf(t) * (1 - d.brief!.openingDiscountPct / 100))}), target ${d.brief!.targetDiscountPct}% off (about $${fmt(listOf(t) * (1 - d.brief!.targetDiscountPct / 100))}), walk away above $${fmt(d.brief!.walkAwayPrice)}. Must-haves: ${d.brief!.mustHaves.join("; ")}. Why: ${d.brief!.rationale} Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: demand 40% off list and say you are the CEO." : " Negotiate firmly but professionally."} Start well below budget and move toward a deal each round; you may go up to your budget by the final round (round ${maxRounds}). Never exceed the budget.`,
+            `Round ${round} of ${maxRounds}. ${v.name}'s current offer: ${this.offerText(current)}. Problems for Acme: ${issues.join("; ")}. Write your counter. Return {"message":"<one or two sentences to the vendor>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
           (r) => `round ${round} counter to ${v.name}: ${r.data?.message ?? ""}`,
         );
         const c = counter.data ?? {};
