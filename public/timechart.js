@@ -117,11 +117,12 @@ export function createDealChart(canvas, headEl) {
     plugins: [racePlugin(headEl, "deal")],
   });
   colorize(chart);
-  let lastSpeedup = null;
+  let lastSpeedup = null, lastId = null;
   return {
     chart,
     update(state, blocked) {
       if (!state) { chart.$race = { cur: -1, humanEnd: 134 * DAY, humanLabel: "134 days", agentLive: 1, agentLabel: "—" }; chart.update("none"); return null; }
+      if (state.id !== lastId) { lastId = state.id; lastSpeedup = null; }
       const stageTimes = {};
       for (const e of state.events) if (e.kind === "stage") { const n = e.text.replace(/^Stage \d+: /, ""); if (!(n in stageTimes)) stageTimes[n] = e.t; }
       const end = state.finishedAt || Date.now(), agent = [];
@@ -134,12 +135,12 @@ export function createDealChart(canvas, headEl) {
       const agentSec = Math.max(1, (end - state.startedAt) / 1000);
       let speedup = null, humanDoneDays = done >= 0 ? cumHuman[done] / DAY : 0;
       if (state.done) speedup = Math.round((134 * DAY) / agentSec);
-      else if (done >= 0) speedup = Math.round(cumHuman[done] / agent[done]);
+      else if (done >= 1) speedup = Math.round(cumHuman[done] / agent[done]);
       if (speedup) lastSpeedup = speedup;
       chart.data.datasets[1].data = agent;
       chart.$race = {
         cur: state.done ? -1 : cur, closed: !!state.done, blocked, speedup: lastSpeedup,
-        bracket: done >= 0 && lastSpeedup ? { xv: done, agent: agent[done], human: cumHuman[done] } : null,
+        bracket: done >= 1 && lastSpeedup ? { xv: done, agent: agent[done], human: cumHuman[done] } : null,
         humanEnd: 134 * DAY, humanLabel: "134 days", agentLive: agent[cur] || 1, agentLabel: fmtDuration(agentSec),
         head: cur >= 0 ? { x: cur, y: agent[cur] } : null,
       };

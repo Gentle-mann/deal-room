@@ -93,7 +93,7 @@ function forest(members) {
   return { kids, roots };
 }
 export function treeLayout(companies, opt = {}) {
-  const LEVEL = opt.levelGap ?? 210, LEAF = opt.leafGap ?? 100, CENTER = opt.center ?? 200, STACK = opt.stackGap ?? 150;
+  const LEVEL = opt.levelGap ?? 210, LEAF = opt.leafGap ?? 100, CENTER = opt.center ?? 200, STACK = opt.stackGap ?? 240;
   const pos = {}, levels = {};
   const layoutOne = (c, dir) => {
     const { kids, roots } = forest(c.members);
