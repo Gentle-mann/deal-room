@@ -181,15 +181,29 @@ export function sendPacket(cy, fromId, toId, opts = {}) {
   const from = cy.getElementById(fromId), to = cy.getElementById(toId);
   if (from.empty() || to.empty() || fromId === toId) return;
   const cls = opts.cls || "";
+  let e = null;
   if (!opts.noEdge) {
     const id = `m:${fromId}>${toId}`;
-    let e = cy.getElementById(id);
+    e = cy.getElementById(id);
     if (e.empty()) e = cy.add({ group:"edges", data:{ id, source:fromId, target:toId, w:1 }, classes:"msg" });
     e.data("w", Math.min(12, (e.data("w") || 1) + 1));
     e.addClass("flash " + cls); setTimeout(() => e.removeClass("flash bad money"), opts.flashMs ?? 900);
   }
   const pid = "p" + Math.random().toString(36).slice(2);
   const label = opts.label || "MSG";
-  const p = cy.add({ group:"nodes", data:{ id:pid, label, pw: 14 + label.length * 7 }, position:{ ...from.position() }, classes:"packet " + (opts.dot ? "dot " : "") + cls });
-  p.animate({ position:{ ...to.position() } }, { duration: opts.duration ?? 850, easing:"ease-in-out-cubic", complete: () => p.remove() });
+  const A = { ...from.position() }, B = { ...to.position() };
+  const p = cy.add({ group:"nodes", data:{ id:pid, label, pw: 14 + label.length * 7 }, position:{ ...A }, classes:"packet " + (opts.dot ? "dot " : "") + cls });
+  // Ride the edge's own curve: a quadratic Bezier through the control point Cytoscape computed for it
+  const dur = opts.duration ?? 850, ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  let C = null, t0 = null;
+  const ctrl = () => { try { const cp = e && e.inside() ? e.controlPoints() : null; return cp && cp.length ? cp[0] : null; } catch { return null; } };
+  const step = (now) => {
+    if (p.removed()) return;
+    if (t0 === null) t0 = now;
+    if (!C) C = ctrl() || { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    const t = Math.min(1, (now - t0) / dur), k = ease(t), u = 1 - k;
+    p.position({ x: u * u * A.x + 2 * u * k * C.x + k * k * B.x, y: u * u * A.y + 2 * u * k * C.y + k * k * B.y });
+    if (t < 1) requestAnimationFrame(step); else p.remove();
+  };
+  requestAnimationFrame(step);
 }

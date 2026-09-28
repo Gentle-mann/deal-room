@@ -1,12 +1,8 @@
 // Humans vs agents: time to close, updated live (Chart.js 4, log time axis).
-// Human benchmark: the 134-day average (mean) B2B SaaS sales cycle (2026 benchmarks), split across our stages.
-// Security review gets 28 days, the midpoint of the published 2-6 week range. The split is illustrative; the total is sourced.
+// The human line is modeled live from the deal's own interactions (humanclock.js); the 134-day industry average is a reference tick.
+import { humanClock, STAGE_NAMES } from "./humanclock.js";
 
-export const HUMAN_DAYS = {
-  "Intake": 5, "Proposals": 18, "Security review": 28, "Negotiation": 18, "Legal review": 25,
-  "Award": 7, "Approvals": 10, "Onboarding & PO": 8, "Invoice & payment": 10, "Provisioning": 5,
-};
-export const STAGES = Object.keys(HUMAN_DAYS);
+export const STAGES = STAGE_NAMES;
 export const DAY = 86400;
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const px = (n) => parseInt(css(n), 10) || 0;
@@ -38,7 +34,7 @@ function racePlugin(headEl, mode) {
       ctx.save();
       // corner note
       ctx.font = "500 12px Inter, system-ui, sans-serif"; ctx.fillStyle = css("--text-3");
-      if (mode === "deal") { ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("Time to close · log scale · human stage split illustrative", a.right - 8, a.bottom - 4); ctx.textAlign = "left"; }
+      if (mode === "deal") { ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("Humans modeled live from each interaction · log scale", a.right - 8, a.bottom - 4); ctx.textAlign = "left"; }
       else { ctx.textBaseline = "top"; ctx.fillText("Time to finish the same messages · log scales", a.left + 8, a.top + 4); }
       // gap bracket
       if (r.bracket) {
@@ -99,12 +95,10 @@ function colorize(chart) {
 
 // ---------- live deal: x = stages ----------
 export function createDealChart(canvas, headEl) {
-  const cumHuman = []; let acc = 0;
-  for (const s of STAGES) { acc += HUMAN_DAYS[s] * DAY; cumHuman.push(acc); }
   const chart = new Chart(canvas, {
     type: "line",
     data: { labels: STAGES, datasets: [
-      { label: "Humans", data: cumHuman, borderWidth: 2.5, borderDash: [6, 5], pointRadius: 0, tension: 0 },
+      { label: "Humans", data: [], borderWidth: 2.5, borderDash: [6, 5], pointRadius: 0, tension: 0 },
       { label: "Agents", data: [], borderWidth: 3, tension: 0, pointRadius: (c) => (c.dataIndex === c.dataset.data.length - 1 ? 0 : 3.5) },
     ] },
     options: {
@@ -123,7 +117,7 @@ export function createDealChart(canvas, headEl) {
   return {
     chart,
     update(state, blocked) {
-      if (!state) { chart.$race = { cur: -1, humanEnd: 134 * DAY, humanLabel: "134 days", agentLive: 1, agentLabel: "—" }; chart.update("none"); return null; }
+      if (!state) { chart.data.datasets[0].data = []; chart.data.datasets[1].data = []; chart.$race = { cur: -1, humanEnd: 1, humanLabel: "—", agentLive: 1, agentLabel: "—" }; chart.update("none"); return null; }
       if (state.id !== lastId) { lastId = state.id; lastSpeedup = null; }
       const stageTimes = {};
       for (const e of state.events) if (e.kind === "stage") { const n = e.text.replace(/^Stage \d+: /, ""); if (!(n in stageTimes)) stageTimes[n] = e.t; }
@@ -137,20 +131,22 @@ export function createDealChart(canvas, headEl) {
       }
       const cur = agent.length - 1, done = state.done ? cur : cur - 1;
       const agentSec = Math.max(1, (end - state.startedAt) / 1000);
-      let speedup = null, humanDoneDays = done >= 0 ? cumHuman[done] / DAY : 0;
-      if (closed) speedup = Math.round((134 * DAY) / agentSec);
-      else if (!state.done && done >= 1) speedup = Math.round(cumHuman[done] / agent[done]);
+      const hc = humanClock(state), human = hc.cum.slice(0, agent.length).map((x) => Math.max(1, x));
+      let speedup = null;
+      if (closed) speedup = Math.round(hc.total / agentSec);
+      else if (!state.done && done >= 1) speedup = Math.round(hc.cum[done] / agent[done]);
       if (speedup) lastSpeedup = speedup;
       if (state.done && !closed) lastSpeedup = null; // no deal, no speedup claim
+      chart.data.datasets[0].data = human;
       chart.data.datasets[1].data = agent;
       chart.$race = {
         cur: state.done ? -1 : cur, closed, blocked, speedup: lastSpeedup,
-        bracket: done >= 1 && lastSpeedup ? { xv: done, agent: agent[done], human: cumHuman[done] } : null,
-        humanEnd: 134 * DAY, humanLabel: "134 days", agentLive: agent[cur] || 1, agentLabel: fmtDuration(agentSec),
+        bracket: done >= 1 && lastSpeedup ? { xv: done, agent: agent[done], human: hc.cum[done] } : null,
+        humanEnd: human[cur] || 1, humanLabel: fmtDuration(hc.total), agentLive: agent[cur] || 1, agentLabel: fmtDuration(agentSec),
         head: cur >= 0 ? { x: cur, y: agent[cur] } : null,
       };
       chart.update("none");
-      return { agentSec, humanDoneDays, speedup: lastSpeedup, cur, done, closed };
+      return { agentSec, humanSec: hc.total, humanDoneDays: hc.total / DAY, counted: hc.counted, speedup: lastSpeedup, cur, done, closed };
     },
     recolor() { colorize(chart); chart.update("none"); },
   };

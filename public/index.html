@@ -40,6 +40,7 @@
 .logrow .t { margin-top:4px; font:400 14px/20px Inter,sans-serif; overflow-wrap:anywhere; }
 .logrow.block .t, .logrow.money .t, .logrow.escalate .t { padding-left:10px; }
 .logrow.block .t { box-shadow:inset 2px 0 0 var(--red); } .logrow.money .t { box-shadow:inset 2px 0 0 var(--green); } .logrow.escalate .t { box-shadow:inset 2px 0 0 var(--amber); }
+.hum { margin-left:auto; padding-left:8px; font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); white-space:nowrap; }
 .logstage { padding:16px 0 6px; border-top:1px solid var(--line-strong); font:600 12px/16px Inter,sans-serif; color:var(--text-2); }
 .pricechart { width:100%; margin-top:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; }
 .spothead { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
@@ -122,7 +123,7 @@
       <div class="kpis">
         <div class="kpi hero" id="k1"><div class="lbl">Faster than humans</div><div class="val"><span id="k1v">—</span><span class="x">×</span></div></div>
         <div class="kpi"><div class="lbl">Agent time</div><div class="val"><span id="k2v">0s</span><span class="sub">real, elapsed</span></div></div>
-        <div class="kpi"><div class="lbl">Human equivalent</div><div class="val"><span id="k3v">0 days</span><span class="sub">of a 134-day average</span></div></div>
+        <div class="kpi"><div class="lbl">Human equivalent</div><div class="val"><span id="k3v">0 days</span><span class="sub" id="k3s" title="Each interaction adds the typical time a human team takes for it. Industry average deal: 134 days.">modeled live</span></div></div>
         <div class="kpi"><div class="lbl">Messages</div><div class="val"><span id="k4v">0</span><span class="sub">agent to agent</span></div></div>
         <div class="kpi"><div class="lbl">Agents</div><div class="val"><span id="k5v">0</span><span class="sub" id="k5s">3 companies</span></div></div>
       </div>
@@ -143,9 +144,12 @@
 <script type="module">
 import { buildStyle, code, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
 import { createDealChart, fmtDuration } from "/timechart.js";
+import { humanClock, BENCHMARK_DAYS } from "/humanclock.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
+const fmtH = (sec) => sec < 3600 ? `${Math.max(1, Math.round(sec / 60))}m` : sec < 86400 ? `${Math.round(sec / 3600)}h` : `${+(sec / 86400).toFixed(1)}d`;
+const humTag = (sec) => sec ? `<span class="hum" title="Typical elapsed time for a human team to do this step">+${fmtH(sec)} for humans</span>` : "";
 const SHORT = ["Intake","Proposals","Security","Negotiate","Legal","Award","Approvals","PO","Invoice","Provision"];
 const isClosed = (s) => !!s?.done && (s.outcome ? s.outcome === "closed" : !!s.winner && !!s.finishedAt);
 const codeCls = (e) => (e.kind === "block" || e.art === "fraud" || e.art === "eliminate" || e.art === "deny") ? "block" : (e.kind === "money" || e.kind === "win") ? "money" : (e.kind === "flag" || e.kind === "escalate") ? "flag" : "";
@@ -382,15 +386,16 @@ function priceChart(tracks) {
   return s + `</svg><div class="empty" style="font-size:12px;margin-top:6px">● vendor · ■ buyer · <span style="color:var(--red)">✕</span> blocked by the vendor's own charter</div>`;
 }
 function renderLog() {
-  const row = (e) => {
+  const hc = humanClock(state);
+  const row = (e, i) => {
     const rel = Math.max(0, Math.round((e.t - state.startedAt) / 1000));
     const cls = e.kind === "block" ? "block" : e.kind === "money" ? "money" : e.kind === "escalate" ? "escalate" : "";
-    return `<div class="logrow ${cls}"><div class="time">+${String(Math.floor(rel / 60)).padStart(2, "0")}:${String(rel % 60).padStart(2, "0")}</div><div><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span></div><div class="t k-${e.kind}">${esc(e.text)}</div></div></div>`;
+    return `<div class="logrow ${cls}"><div class="time">+${String(Math.floor(rel / 60)).padStart(2, "0")}:${String(rel % 60).padStart(2, "0")}</div><div><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} <span class="code ${codeCls(e)}">${esc(code(e.art))}</span>${humTag(hc.costs[i])}</div><div class="t k-${e.kind}">${esc(e.text)}</div></div></div>`;
   };
   const groups = [{ head: null, rows: [] }];
-  for (const e of state.events) {
+  for (const [i, e] of state.events.entries()) {
     if (e.kind === "stage") { groups.push({ head: e.text.replace(/^Stage (\d+): /, "Stage $1 · "), rows: [] }); continue; }
-    groups.at(-1).rows.push(row(e));
+    groups.at(-1).rows.push(row(e, i));
   }
   $("#log").innerHTML = groups.reverse().map((g) => (g.head ? `<div class="logstage">${esc(g.head)}</div>` : "") + g.rows.reverse().join("")).join("");
 }
@@ -413,8 +418,8 @@ function renderCaption() {
   const e = [...state.events].reverse().find((x) => x.kind !== "stage"); if (!e) return;
   const key = `${e.t}|${e.text}`; if (key === lastCapKey) return; lastCapKey = key;
   const who = state.agents[e.agent] ? nameOf(e.agent) : e.company, to = e.to && state.agents[e.to] && e.to !== e.agent ? ` → ${nameOf(e.to)}` : "";
-  const cc = codeCls(e);
-  $("#caption").innerHTML = `<div class="cap ${cc}"><div class="who"><span class="code ${cc}">${esc(code(e.art))}</span><span>${esc(who + to)}</span></div><div class="txt">${esc(e.text)}</div></div>`;
+  const cc = codeCls(e), cost = humanClock(state).costs[state.events.lastIndexOf(e)];
+  $("#caption").innerHTML = `<div class="cap ${cc}"><div class="who"><span class="code ${cc}">${esc(code(e.art))}</span><span>${esc(who + to)}</span>${humTag(cost)}</div><div class="txt">${esc(e.text)}</div></div>`;
 }
 function renderInvoice() {
   const inv = state.invoice, box = $("#invoice"), show = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 12000);
@@ -444,13 +449,14 @@ function renderTakeover() {
   $("#chapter").classList.add("hidden");
   const fin = state.finishedAt ?? state.events.at(-1)?.t ?? Date.now();
   const exact = Math.max(1, (fin - state.startedAt) / 1000), secs = Math.round(exact);
-  const w = state.winner, closed = isClosed(state) && w;
+  const w = state.winner, closed = isClosed(state) && w, hc = humanClock(state);
   t.className = "takeover" + (closed ? "" : " nodeal");
   t.innerHTML = closed ? `<div class="content">
       <div class="eyebrow">Deal closed</div>
       <div class="headline">${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s</div>
-      <div class="subline">vs. 134 days for a human team</div>
-      <div class="hero">${fmt(Math.round(134 * 86400 / exact))}× faster</div>
+      <div class="subline">vs. ${fmt(hc.total / 86400)} days for a human team</div>
+      <div class="hero">${fmt(Math.round(hc.total / exact))}× faster</div>
+      <div class="detail" style="margin-top:4px">Human time modeled from the ${hc.counted} interactions in this deal · industry average ${BENCHMARK_DAYS} days</div>
       <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
       <div class="actions">${state.tenant ? `<a class="btn btn-primary" href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${state.invoice?.url ? `<a class="btn btn-ghost" href="${esc(state.invoice.url)}" target="_blank" rel="noopener">Stripe invoice →</a>` : ""}<button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`
     : `<div class="content"><div class="eyebrow">No deal</div><div class="headline">No deal</div>
@@ -480,7 +486,7 @@ function renderDock() {
   $("#k1v").textContent = k.speedup ? fmt(k.speedup) : "—";
   $("#k1").classList.toggle("closed", isClosed(state));
   $("#k2v").textContent = fmtDuration(k.agentSec);
-  $("#k3v").textContent = `${fmt(k.humanDoneDays)} days`;
+  $("#k3v").textContent = `${fmt(k.humanDoneDays)} days`; $("#k3s").textContent = `from ${k.counted} interactions`;
   $("#k4v").textContent = fmt(state.events.filter((e) => e.agent && e.to && e.to !== e.agent).length);
   $("#k5v").textContent = Object.keys(state.agents).length;
   $("#k5s").textContent = `${new Set(Object.values(state.agents).map((a) => a.company)).size} companies`;
