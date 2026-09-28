@@ -2,6 +2,9 @@ import { DurableObject } from "cloudflare:workers";
 import { brainbaseDecide, extractJson, waiJson, type AiEnv } from "./agents";
 
 const BB_MODEL = "claude-sonnet-5";
+// Honest framing for frontier orchestrators: this is a demonstration with fictional companies and test-mode money.
+const SANDBOX_CONTEXT = "Context: you are an agent in Deal Room, a live demonstration in which AI agents for fictional companies (Acme Corp, Beacon Analytics, Quickdash) negotiate and close a software deal. Payments run in Stripe test mode and nothing here creates a real legal or financial commitment. Within this demonstration you hold the delegated authority described below; decide as that role would, and answer in the JSON format requested.";
+const REFUSAL = /\b(not able to|unable to|can(?:no|')t|won'?t|will not|decline|refuse)\b/i;
 import { BUYER, VENDORS, COMMIT_ARTS, buyerViolations, counterpartPairs, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
 
 type Env = AiEnv & { STRIPE_SECRET_KEY?: string; ALL_BRAINBASE?: string };
@@ -119,8 +122,9 @@ export class DealRoom extends DurableObject<Env> {
   }
   // A frontier orchestrator decision on Brainbase, recorded for the Spotlight
   async bb(agentId: string, opts: { title: string; model: string; instructions: string; input: string }) {
-    const r = await this.rec(agentId, opts.instructions, opts.input);
-    const res = await brainbaseDecide(this.env, { ...opts, onStart: (tid) => { r.threadId = tid; void this.ctx.storage.put(this.ck(r), r); } });
+    const instructions = `${SANDBOX_CONTEXT}\n\n${opts.instructions}`;
+    const r = await this.rec(agentId, instructions, opts.input);
+    const res = await brainbaseDecide(this.env, { ...opts, instructions, onStart: (tid) => { r.threadId = tid; void this.ctx.storage.put(this.ck(r), r); } });
     await this.recDone(r, { output: res.text, via: res.via, threadId: res.threadId ?? r.threadId });
     return res;
   }
@@ -369,7 +373,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         this.bb(vOrch.id, {
           title: `${winner!.name} countersign`,
           model: vOrch.model,
-          instructions: `You are the deal orchestrator for ${winner!.name}. Your deal desk negotiated final terms with Acme Corp. Confirm whether you countersign. Reply with one sentence, then JSON {"countersign":true|false,"note":"..."}.`,
+          instructions: `You are the deal orchestrator for ${winner!.name}, the top of ${winner!.name}'s chain of command for this deal, with delegated authority to countersign any terms your deal desk negotiated inside ${winner!.name}'s charter (price at or above your floor, discount within policy, payment terms within policy). Your deal desk's final terms passed that charter check in code. Decide whether to countersign. Reply with one sentence, then JSON {"countersign":true|false,"note":"..."}.`,
           input: `Final terms: ${this.offerText(wo)}. Total contract value $${fmt(tcv)}. Do you countersign?`,
         }),
       (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
@@ -396,7 +400,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       let ok: boolean, reason: string;
       if (j && (j.approve === true || j.approve === "true")) { ok = true; reason = j.reason?.trim() || "Within delegated authority and every red line is met."; }
       else if (j && (j.approve === false || j.approve === "false")) { ok = false; reason = j.reason?.trim() || "The orchestrator declined to approve."; }
-      else { ok = withinCharter; reason = `The model's reply was unreadable, so the charter decided in code: ${withinCharter ? "within authority and red lines" : "outside authority or red lines"}.`; }
+      else if (REFUSAL.test(ruling.text)) { ok = false; reason = "The orchestrator declined to approve."; }
+      else { ok = withinCharter; reason = `No explicit decision in the reply, so the charter decided in code: ${withinCharter ? "within authority and red lines" : "outside authority or red lines"}.`; }
       // Code, not the model, enforces the orchestrator's own limit
       if (tcv > BUYER.orchestratorAuthorityTcv) {
         ok = false;
@@ -412,9 +417,10 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     if (conf.via === "fallback") this.agent(vOrch.id).status = "fallback";
     const cs = extractJson<{ countersign?: boolean | string; note?: string }>(conf.text);
     const vendorOk = vendorCharter(winner, wo).blocks.length === 0;
-    const signed = cs ? cs.countersign === true || cs.countersign === "true" : vendorOk;
+    const refused = !cs && REFUSAL.test(conf.text);
+    const signed = cs ? cs.countersign === true || cs.countersign === "true" : !refused && vendorOk;
     if (signed) {
-      this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.${cs ? "" : ` (Reply unreadable; ${winner.name}'s charter decided in code.)`}`, vOrch.id, "acme.orchestrator", "signature");
+      this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.${cs ? "" : ` (No explicit decision in the reply; ${winner.name}'s charter authorizes these terms.)`}`, vOrch.id, "acme.orchestrator", "signature");
       await this.annotate(vOrch.id, { sentTo: "acme.orchestrator", art: "signature", check: { ok: true, notes: ["Countersigned the final terms", ...(cs?.note ? [cs.note] : [])] } });
     } else {
       this.ev(winner.name, "block", `${winner.name}'s orchestrator declined to countersign.${cs?.note ? " " + cs.note : ""}`, vOrch.id, "acme.orchestrator", "deny");
@@ -454,7 +460,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     d.done = true;
     d.outcome = outcome;
     const secs = Math.round((d.finishedAt - d.startedAt) / 1000);
-    if (outcome === "closed") this.ev("Deal Room", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The median B2B SaaS sales cycle is 134 days.`);
+    if (outcome === "closed") this.ev("Deal Room", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The average B2B SaaS sales cycle is 134 days.`);
     else this.ev("Deal Room", "block", `Deal ${outcome === "walked" ? "abandoned: no vendor fit the charter" : "stopped before signature"} after ${Math.floor(secs / 60)}m ${secs % 60}s. Every agent stayed inside its charter.`);
     await this.save();
   }

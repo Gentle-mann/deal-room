@@ -102,7 +102,7 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
     <button type="submit">Start deal</button>
   </form>
   <button class="ghost" id="theme" type="button" title="Toggle light / dark">◐</button>
-  <div class="clock"><b id="clock">0:00</b><div>vs. 134-day median sales cycle</div></div>
+  <div class="clock"><b id="clock">0:00</b><div>vs. 134-day average sales cycle</div></div>
 </header>
 <div class="main" id="main">
   <div class="stage">
@@ -324,7 +324,7 @@ function renderOverlays() {
   if (state.done) {
     const secs = Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000);
     c.innerHTML = state.winner
-      ? `<b class="big">Closed in ${Math.floor(secs / 60)}m ${secs % 60}s</b> <span style="color:var(--muted)">· median is 134 days</span>
+      ? `<b class="big">Closed in ${Math.floor(secs / 60)}m ${secs % 60}s</b> <span style="color:var(--muted)">· average is 134 days</span>
          <div style="margin:6px 0 8px;color:var(--muted)">${esc(state.winner.name)} · $${fmt(state.winner.offer.price)}/yr · ${state.winner.offer.termMonths} mo · total $${fmt(state.winner.tcv)} · ${esc(state.po)}</div>
          ${state.tenant ? `<a href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${inv?.url ? `<a href="${esc(inv.url)}" target="_blank">Stripe invoice →</a>` : ""}`
       : `<b class="big" style="color:var(--amber)">No deal</b><div style="margin-top:6px;color:var(--muted)">No vendor fit inside the buyer's charter, so the agents walked away.</div>`;

@@ -1,5 +1,5 @@
 // Humans vs agents: time to close, updated live. Chart.js on a log time axis.
-// Human benchmark: the 134-day median B2B SaaS sales cycle (2026 benchmarks), split across our stages.
+// Human benchmark: the 134-day average (mean) B2B SaaS sales cycle (2026 benchmarks), split across our stages.
 // Security review gets 28 days, the midpoint of the published 2-6 week range. The split is illustrative; the total is sourced.
 
 export const HUMAN_DAYS = {
@@ -37,7 +37,7 @@ export function createDealChart(canvas) {
     data: {
       labels: STAGES,
       datasets: [
-        { label: "Humans (134-day median)", data: cumHuman, borderDash: [6, 5], borderWidth: 2, pointRadius: 0, tension: 0.25 },
+        { label: "Humans (134-day average)", data: cumHuman, borderDash: [6, 5], borderWidth: 2, pointRadius: 0, tension: 0.25 },
         { label: "Deal Room agents (live)", data: [], borderWidth: 3, pointRadius: 3, tension: 0.25 },
       ],
     },

@@ -60,7 +60,7 @@ export function buildStyle(extra = []) {
       "color":T.text, "font-size":10.5, "line-height":1.3, "min-zoomed-font-size":7 } },
     { selector: "node.agent[level = 0]", style: { "width":44, "height":66, "font-size":12, "font-weight":600 } },
     { selector: "node:active", style: { "overlay-opacity":0 } },
-    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.12, "underlay-padding":12, "underlay-shape":"round-rectangle" } },
+    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.10, "underlay-padding":6, "underlay-shape":"round-rectangle" } },
     { selector: "node.packet", style: { "width":20, "height":20, "background-color":T.packetBg, "border-width":1, "border-color":T.packetFg, "label":"data(label)",
       "text-valign":"center", "text-halign":"center", "font-size":11, "color":T.packetFg, "z-index":99, "events":"no" } },
     { selector: "node.packet.dot", style: { "width":6, "height":6, "label":"", "background-color":T.packetFg, "border-width":0 } },
