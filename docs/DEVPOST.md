@@ -84,4 +84,4 @@ brainbase, claude, anthropic, cloudflare-workers, workers-ai, durable-objects, s
 
 ## Video
 
-Record the demo tour with Cmd+Shift+5 (about 4 to 5 minutes), trim it to about 3 minutes, upload it to YouTube as Unlisted, and paste the link here.
+Record the run with Cmd+Shift+5 (about 4 to 5 minutes), trim it to about 3 minutes, upload it to YouTube as Unlisted, and paste the link here.

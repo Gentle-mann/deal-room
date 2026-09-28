@@ -6,8 +6,8 @@ Structure follows `hackathon-lessons.md`: roughly 25% problem, 50% live demo bui
 
 A full live deal now takes about 5 minutes (real Brainbase research, proposals, award and approval), which is longer than the pitch. Use two tabs:
 
-- **Tab 1, "finished":** a deal run 5 to 10 minutes earlier, left on its closed takeover screen (the closing time, the speedup and the paid Stripe invoice). Start it with ▶ Demo tour when you sit down.
-- **Tab 2, "live":** press ▶ Demo tour (key D) about 30 seconds before you start talking, so the Procurement analyst is researching during your demo section.
+- **Tab 1, "finished":** a deal run 5 to 10 minutes earlier, left on its closed takeover screen (the closing time, the speedup and the paid Stripe invoice). Start it with ▶ Run when you sit down.
+- **Tab 2, "live":** press ▶ Run (key D) about 30 seconds before you start talking, so the Procurement analyst is researching during your demo section.
 - Keep the recorded backup video one click away.
 
 ## Script
