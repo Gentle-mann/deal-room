@@ -132,6 +132,8 @@ applyTheme(getTheme());
 const cy = cytoscape({ container: $("#cy"), style: buildStyle(), elements: [], wheelSensitivity: 0.25, minZoom: 0.05, maxZoom: 3 });
 $("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle()); applyPoses(); renderFocus(); };
 window.cy = cy;
+cy.autounselectify(true);
+function markFocus(id) { cy.nodes(".agent").removeClass("focused"); if (id) cy.getElementById(id).addClass("focused"); }
 
 let dealId = new URLSearchParams(location.search).get("deal"), state = null, seen = 0, focusId = null, timer = null, builtFor = null;
 let follow = false, lastFollow = 0, frame = 0;
@@ -183,7 +185,7 @@ setInterval(applyPoses, 380);
 $("#fit").onclick = () => { follow = false; $("#follow").classList.remove("on"); cy.animate({ fit:{ eles: cy.elements(), padding:50 } }, { duration:600 }); };
 $("#follow").onclick = () => { follow = !follow; $("#follow").classList.toggle("on", follow); if (!follow) $("#fit").onclick(); };
 function zoomTo(id) { const n = cy.getElementById(id); if (n.nonempty()) cy.animate({ center:{ eles:n }, zoom: 1.4 }, { duration:600 }); }
-cy.on("tap", "node.agent", (evt) => { focusId = evt.target.id(); if (spotId) spotlight(focusId); else { showTab("focus"); zoomTo(focusId); renderFocus(); } });
+cy.on("tap", "node.agent", (evt) => { focusId = evt.target.id(); markFocus(focusId); if (spotId) spotlight(focusId); else { showTab("focus"); zoomTo(focusId); renderFocus(); } });
 cy.on("dbltap", "node.agent", (evt) => spotlight(evt.target.id()));
 
 // ---------- Spotlight: one agent's real model calls, everything else dimmed ----------
@@ -373,9 +375,13 @@ async function load() {
   if (s.done) { clearInterval(timer); setTimeout(() => $("#fit").onclick(), 1500); }
 }
 function poll() { clearInterval(timer); load(); timer = setInterval(load, 1000); }
+function demoKey() { try { const u = new URL(location.href); const k = u.searchParams.get("key"); if (k) { localStorage.setItem("dealroom-key", k); } return k || localStorage.getItem("dealroom-key") || ""; } catch { return ""; } }
 async function startDeal() {
   if (spotId) exitSpotlight();
-  const r = await fetch("/api/deals", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ budget:Number($("#budget").value), aggressive:$("#aggr").checked, allBrainbase:$("#allbb").checked }) });
+  let key = demoKey();
+  const post = () => fetch("/api/deals", { method:"POST", headers:{ "content-type":"application/json", "x-demo-key": key }, body: JSON.stringify({ budget:Number($("#budget").value), aggressive:$("#aggr").checked, allBrainbase:$("#allbb").checked }) });
+  let r = await post();
+  if (r.status === 401) { key = prompt("Demo passcode") || ""; try { localStorage.setItem("dealroom-key", key); } catch {} r = await post(); if (r.status === 401) return; }
   dealId = (await r.json()).id; history.replaceState(null, "", "?deal=" + dealId);
   focusId = null; builtFor = null; calls = []; typed.clear(); $("#focus").innerHTML = `<div style="color:var(--muted);font-size:13px">Select an agent to see its charter, what it received and what it sent. Double-click an agent to spotlight its real work.</div>`;
   poll();

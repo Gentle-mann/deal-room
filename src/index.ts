@@ -10,6 +10,7 @@ type Env = {
   BRAINBASE_API_KEY: string;
   BRAINBASE_OFF?: string;
   STRIPE_SECRET_KEY?: string;
+  DEMO_PASSCODE?: string;
 };
 
 const json = (d: unknown, status = 200) =>
@@ -24,6 +25,8 @@ export default {
 
     if (p[0] === "api") {
       if (req.method === "POST" && p[1] === "deals" && p.length === 2) {
+        // On the public deployment, starting a deal (which spends model credits) needs the demo passcode
+        if (env.DEMO_PASSCODE && req.headers.get("x-demo-key") !== env.DEMO_PASSCODE) return json({ error: "passcode required" }, 401);
         const body = await req.json().catch(() => ({}));
         const id = crypto.randomUUID().slice(0, 6);
         await stub(env, id).start(id, body);

@@ -55,11 +55,12 @@ export function buildStyle(extra = []) {
     { selector: "node.company", style: { "background-color":T.company, "border-width":1, "border-color":T.companyBorder, "shape":"round-rectangle",
       "label":"data(label)", "text-valign":"top", "text-halign":"center", "text-margin-y":-10, "color":T.strong, "font-size":16, "font-weight":600, "padding":36 } },
     { selector: "node.agent", style: { "shape":"rectangle", "width":34, "height":51, "background-opacity":0, "border-width":0,
-      "background-image":"data(img)", "background-fit":"contain", "background-clip":"none", "background-image-containment":"over",
+      "background-image":"data(img)", "background-fit":"contain", "background-clip":"node", "background-image-smoothing":"yes",
       "label":"data(label)", "text-wrap":"wrap", "text-max-width":150, "text-valign":"bottom", "text-margin-y":7,
       "color":T.text, "font-size":10.5, "line-height":1.3, "min-zoomed-font-size":7 } },
     { selector: "node.agent[level = 0]", style: { "width":44, "height":66, "font-size":12, "font-weight":600 } },
-    { selector: "node.agent:selected", style: { "overlay-color":T.select, "overlay-opacity":0.1, "overlay-padding":10, "overlay-shape":"round-rectangle" } },
+    { selector: "node:active", style: { "overlay-opacity":0 } },
+    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.12, "underlay-padding":12, "underlay-shape":"round-rectangle" } },
     { selector: "node.packet", style: { "width":20, "height":20, "background-color":T.packetBg, "border-width":1, "border-color":T.packetFg, "label":"data(label)",
       "text-valign":"center", "text-halign":"center", "font-size":11, "color":T.packetFg, "z-index":99, "events":"no" } },
     { selector: "node.packet.dot", style: { "width":6, "height":6, "label":"", "background-color":T.packetFg, "border-width":0 } },
@@ -74,7 +75,7 @@ export function buildStyle(extra = []) {
     { selector: "edge.flash.money", style: { "line-color":GREEN, "target-arrow-color":GREEN } },
     { selector: "edge.chan", style: { "curve-style":"unbundled-bezier", "control-point-distances":[30], "control-point-weights":[0.5], "width":1, "line-color":T.reports, "line-style":"dotted", "events":"no" } },
     { selector: ".dim", style: { "opacity":0.1 } },
-    { selector: "node.agent.spot", style: { "overlay-color":AMBER, "overlay-opacity":0.14, "overlay-padding":14, "overlay-shape":"round-rectangle" } },
+    { selector: "node.agent.spot", style: { "underlay-color":AMBER, "underlay-opacity":0.22, "underlay-padding":14, "underlay-shape":"round-rectangle" } },
     ...extra,
   ];
 }
