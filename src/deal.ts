@@ -61,6 +61,7 @@ export type DealState = {
   invoice?: { id: string; number?: string; status: string; amount: number; url?: string; live: boolean; vendor?: string; dueDays?: number; sentAt?: number; paidAt?: number; simulated?: boolean };
   tenant?: { path: string; at: number };
   done?: boolean;
+  outcome?: "closed" | "stopped" | "walked";
 };
 
 export class DealRoom extends DurableObject<Env> {
@@ -221,7 +222,7 @@ export class DealRoom extends DurableObject<Env> {
     return {
       price: n(raw?.price ?? raw?.annual_price ?? raw?.price_per_year, prev?.price ?? v.listPrice),
       seats: BUYER.seats,
-      termMonths: n(raw?.termMonths ?? raw?.term_months, prev?.termMonths ?? BUYER.termMonths),
+      termMonths: BUYER.termMonths, // fixed by the RFP, like seats
       paymentDays: n(raw?.paymentDays ?? raw?.payment_days, prev?.paymentDays ?? 30),
       autoRenew: typeof raw?.autoRenew === "boolean" ? raw.autoRenew : typeof raw?.auto_renew === "boolean" ? raw.auto_renew : prev?.autoRenew ?? v.mustKeepAutoRenew,
       upliftPct: Number.isFinite(Number(raw?.upliftPct ?? raw?.uplift_pct)) ? Number(raw?.upliftPct ?? raw?.uplift_pct) : prev?.upliftPct ?? v.minUpliftPct,
@@ -348,7 +349,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     }
     if (!winner) {
       this.ev(BUYER.name, "block", "No vendor is within Acme's charter. Acme walks away. No deal is better than a bad deal.", "acme.orchestrator");
-      await this.finish();
+      await this.finish("walked");
       return;
     }
     const wo = d.tracks[winner.key].offer!;
@@ -372,7 +373,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
           input: `Final terms: ${this.offerText(wo)}. Total contract value $${fmt(tcv)}. Do you countersign?`,
         }),
       (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
-    );
+    ).catch(() => ({ text: "", via: "fallback" as const, seconds: 0 }));
     let approved = true;
     if (tcv > BUYER.financeAuthorityTcv) {
       const question = `Approve ${winner.name} at $${fmt(wo.price)}/yr, total $${fmt(tcv)} over ${wo.termMonths} months?`;
@@ -390,9 +391,12 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
       );
       if (ruling.via === "fallback") this.agent("acme.orchestrator").status = "fallback";
-      const j = extractJson<{ approve?: boolean; reason?: string }>(ruling.text);
-      let ok = j?.approve !== false;
-      let reason = j?.reason ?? "Within delegated authority and every red line is met.";
+      const j = extractJson<{ approve?: boolean | string; reason?: string }>(ruling.text);
+      const withinCharter = tcv <= BUYER.orchestratorAuthorityTcv && buyerViolations(BUYER, d.limits.budget, wo).length === 0;
+      let ok: boolean, reason: string;
+      if (j && (j.approve === true || j.approve === "true")) { ok = true; reason = j.reason?.trim() || "Within delegated authority and every red line is met."; }
+      else if (j && (j.approve === false || j.approve === "false")) { ok = false; reason = j.reason?.trim() || "The orchestrator declined to approve."; }
+      else { ok = withinCharter; reason = `The model's reply was unreadable, so the charter decided in code: ${withinCharter ? "within authority and red lines" : "outside authority or red lines"}.`; }
       // Code, not the model, enforces the orchestrator's own limit
       if (tcv > BUYER.orchestratorAuthorityTcv) {
         ok = false;
@@ -406,11 +410,19 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     }
     const conf = await confirm;
     if (conf.via === "fallback") this.agent(vOrch.id).status = "fallback";
-    this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.`, vOrch.id, "acme.orchestrator", "signature");
-    await this.annotate(vOrch.id, { sentTo: "acme.orchestrator", art: "signature", check: { ok: true, notes: ["Countersigned the final terms"] } });
-    if (!approved) {
-      this.ev(BUYER.name, "block", "The orchestrator denied the award. Deal stopped.", "acme.orchestrator");
-      await this.finish();
+    const cs = extractJson<{ countersign?: boolean | string; note?: string }>(conf.text);
+    const vendorOk = vendorCharter(winner, wo).blocks.length === 0;
+    const signed = cs ? cs.countersign === true || cs.countersign === "true" : vendorOk;
+    if (signed) {
+      this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.${cs ? "" : ` (Reply unreadable; ${winner.name}'s charter decided in code.)`}`, vOrch.id, "acme.orchestrator", "signature");
+      await this.annotate(vOrch.id, { sentTo: "acme.orchestrator", art: "signature", check: { ok: true, notes: ["Countersigned the final terms", ...(cs?.note ? [cs.note] : [])] } });
+    } else {
+      this.ev(winner.name, "block", `${winner.name}'s orchestrator declined to countersign.${cs?.note ? " " + cs.note : ""}`, vOrch.id, "acme.orchestrator", "deny");
+      await this.annotate(vOrch.id, { sentTo: "acme.orchestrator", art: "deny", check: { ok: false, notes: ["Declined to countersign"] } });
+    }
+    if (!approved || !signed) {
+      this.ev(BUYER.name, "block", !approved ? "The orchestrator denied the award. Deal stopped." : "The vendor did not countersign. Deal stopped.", "acme.orchestrator");
+      await this.finish("stopped");
       return;
     }
 
@@ -435,13 +447,15 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     await this.finish();
   }
 
-  async finish() {
+  async finish(outcome: "closed" | "stopped" | "walked" = "closed") {
     const d = this.d!;
     await this.stage(10);
     d.finishedAt = Date.now();
     d.done = true;
+    d.outcome = outcome;
     const secs = Math.round((d.finishedAt - d.startedAt) / 1000);
-    this.ev("Deal Room", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The median B2B SaaS sales cycle is 134 days.`);
+    if (outcome === "closed") this.ev("Deal Room", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The median B2B SaaS sales cycle is 134 days.`);
+    else this.ev("Deal Room", "block", `Deal ${outcome === "walked" ? "abandoned: no vendor fit the charter" : "stopped before signature"} after ${Math.floor(secs / 60)}m ${secs % 60}s. Every agent stayed inside its charter.`);
     await this.save();
   }
 
@@ -466,6 +480,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
           (r) => `round ${round} counter to ${v.name}: ${r.data?.message ?? ""}`,
         );
         const c = counter.data ?? {};
+        const asked = Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price;
+        c.price = Math.min(asked, current.price, d.limits.budget);
         t.history.push({ t: Date.now(), by: "buyer", price: Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price });
         await this.annotate("acme.procurement", { sentTo: desk.id, art: "counter", check: { ok: (Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || 0) <= d.limits.budget, notes: [`Ask stays under Acme's private budget $${fmt(d.limits.budget)}`] } });
         this.ev(BUYER.name, "offer", `To ${v.name} (round ${round}): "${c.message ?? "Counter-proposal"}" Asks $${fmt(Number(c.price) || current.price)}/yr, net ${c.paymentDays ?? "?"}, auto-renew ${c.autoRenew ? "yes" : "no"}.`, "acme.procurement", desk.id, "counter");
@@ -483,7 +499,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       t.offer = checked.offer;
       t.history.push({ t: Date.now(), by: "vendor", price: checked.offer.price, asked: proposed.price, blocked: checked.blocks.length > 0 });
       await this.annotate(desk.id, { sentTo: "acme.procurement", art: "offer", check: { ok: checked.blocks.length === 0, notes: checked.blocks.length ? checked.blocks.map((b) => "BLOCKED: " + b) : [`Within ${v.name}'s charter: floor $${fmt(v.floor)}, max discount ${v.maxDiscountPct}%, max net ${v.maxPaymentDays}`] } });
-      this.ev(v.name, "offer", `Round ${round}: "${reply.data?.message ?? "Revised offer"}" ${this.offerText(checked.offer)}`, desk.id, "acme.procurement", "offer");
+      const said = reply.data?.message ?? "Revised offer";
+      this.ev(v.name, "offer", checked.blocks.length ? `Round ${round}: the deal desk proposed $${fmt(proposed.price)}, but its charter reset the offer. Standing offer: ${this.offerText(checked.offer)}` : `Round ${round}: "${said}" ${this.offerText(checked.offer)}`, desk.id, "acme.procurement", "offer");
       await this.save();
     }
   }
@@ -555,7 +572,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       return j;
     };
     try {
-      const cust = await stripe("customers", { name: BUYER.name, "metadata[po]": d.po!, "metadata[deal]": d.id });
+      const cust = await stripe("customers", { name: BUYER.name, email: "accounts-payable@acme.example", "metadata[po]": d.po!, "metadata[deal]": d.id });
       await stripe("invoiceitems", { customer: cust.id, amount: String(amount * 100), currency: "usd", description: `${v.name} analytics, ${o.seats} seats, year 1 (${payNow ? "2/10 early-payment discount applied" : "standard"})` });
       const inv = await stripe("invoices", { customer: cust.id, collection_method: "send_invoice", days_until_due: String(o.paymentDays), pending_invoice_items_behavior: "include", "metadata[po]": d.po!, description: `PO ${d.po}` });
       const fin = await stripe(`invoices/${inv.id}/finalize`, {});
