@@ -563,6 +563,7 @@ Reply with 2 or 3 sentences of reasoning, then one JSON object: {"targetDiscount
         (r) => `round ${round} reply: ${r.data?.message ?? ""}`,
       );
       const proposed = this.normalizeOffer(reply.data, v, current);
+      proposed.price = Math.min(proposed.price, current.price); // offers only move toward a deal: no re-raising mid-negotiation
       const checked = vendorCharter(v, proposed);
       for (const b of checked.blocks) this.ev(v.name, "block", `BLOCKED by ${v.name}'s charter: ${b}`, desk.id, desk.id, "block");
       t.offer = checked.offer;

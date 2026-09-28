@@ -23,8 +23,9 @@ Buying software at a large company takes 134 days on average, and security revie
 Deal Room gives every company a deal orchestrator: one frontier agent commanding its own departments (procurement, security, legal, finance, deal desk). Orchestrators from a buyer and competing vendors meet in the Deal Room and run the whole deal:
 
 - RFP and opening proposals
+- Market research: the buyer's procurement analyst (Claude on Brainbase) searches the web for current discount and renewal benchmarks, reads Acme's internal files (procurement policy, past contracts, pilot usage, budget memo), and writes a cited negotiation brief with an opening ask, a target and a walk-away price
 - Security questionnaire, answered only from each vendor's trust pack with citations and graded by the buyer's security agent
-- Multi-round price and terms negotiation
+- Multi-round price and terms negotiation, driven by the analyst's brief and capped at its walk-away price
 - Legal review against the buyer's red lines
 - Award, then approvals that go up the chain of command
 - Sanctions and bank-detail fraud checks, and the purchase order
@@ -33,22 +34,24 @@ Deal Room gives every company a deal orchestrator: one frontier agent commanding
 
 There is no human in the loop. Trust comes from charters. Every agent has one: what it can do alone, what it must escalate, and what it must prove. Charters are enforced in code, not by the model. In our runs you can watch a vendor's own agent offer a price below its floor and get blocked by its own charter. You can also watch a subagent try to go around procurement to the buyer's orchestrator and get stopped by the channel rule: subagents only talk to their counterpart at the other company, and only orchestrators can commit the company.
 
-Spotlight lets you open any agent and see its real work: the message it received, the charter it runs under, its raw model output, the charter check, and where it sent the result. A scale view shows the same chain-of-command architecture grown to thousands of agents. That view is a simulation, and the app labels it as one.
+Spotlight lets you open any agent and see its real work. For the analyst that means every web search and file read as it happens, then the sources it cited. For the others it is the message it received, the charter it runs under, its raw model output, the charter check, and where it sent the result. A scale view shows the same chain-of-command architecture grown to thousands of agents. That view is a simulation, and the app labels it as one.
 
 ## How we built it
-- **Brainbase:** hosts the frontier orchestrators (Claude Sonnet 5) through the Universal Managed Agents API. Each award, approval and countersignature is a real Brainbase thread with an ID you can see in Spotlight.
+- **Brainbase:** hosts the frontier agents (Claude Sonnet 5) through the Universal Managed Agents API. Each award, approval and countersignature is a real Brainbase thread with an ID you can see in Spotlight. The procurement analyst runs in a Brainbase sandbox with web search and Acme's internal files mounted, and we stream its tool events into Spotlight live.
 - **Cloudflare:** the app runs on Workers, and every deal is a Durable Object that drives the stage machine. Workers AI runs the open-weight department subagents: Llama 3.3 70B for the buyer, Llama 4 Scout and Mistral Small 3.1 for the vendors. Frontier models handle judgment and open models handle volume.
 - **Stripe:** test-mode customer, invoice referencing the PO, finalize, and pay.
 - **Anthropic Claude:** powers the orchestrators' judgment.
 - **Front end:** Cytoscape.js for the chain-of-command graph with pictogram agents that change pose by state, and Chart.js for the humans-vs-agents time chart.
 
 ## Challenges we ran into
+- Research takes about two minutes, so the analyst starts at the proposal stage and works in parallel with the security review. Negotiation waits for its brief, and falls back to Acme's written policy if research fails.
 - Brainbase agent turns take 40 to 60 seconds each because they boot a full sandbox, so we split the work: a frontier model for the few decisions that bind the company, and fast open-weight models for the many department turns.
 - Reasoning-only open models returned empty answers, so we switched to models that answer directly.
 - Claude sensibly refused to countersign a contract it believed was real. We fixed that by telling it the truth: fictional companies, test-mode money, and the exact authority its role holds. Explicit refusals are respected, never overridden.
 - Making approvals fail closed, so that an unreadable model reply never counts as a yes.
 
 ## Accomplishments that we're proud of
+- An analyst agent that makes a real judgment call: it found that Acme's own 2024 contract got 20% off for a 24-month term, checked that against 2026 market benchmarks, and set the negotiation target from that evidence, with sources.
 - A B2B deal closed end to end in about five minutes on the deployed app, including a real Stripe test-mode invoice sent and paid by agents.
 - Governance you can watch: blocked offers, blocked out-of-channel messages, a blocked fraudulent bank-detail change, and approvals routed up the chain of command.
 - Every agent's real model calls can be inspected live.
