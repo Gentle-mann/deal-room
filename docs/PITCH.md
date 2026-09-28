@@ -34,7 +34,7 @@ A full live deal now takes about 5 minutes (real Brainbase research, proposals, 
 
 *[Switch to tab 1, on the closed takeover.]*
 
-"Here's the deal we started a few minutes ago, run end to end in under five minutes. The human number next to it isn't a guess: every message, questionnaire, redline and approval the agents made adds the time a human team typically takes for that step, and this deal comes to about 84 days. The vendor sent a real Stripe invoice referencing the PO. Acme's finance agent did a three-way match, took the 2% early-payment discount and paid it. The workspace was provisioned on Cloudflare the moment the payment cleared."
+"Here's the deal we started a few minutes ago, run end to end in under five minutes. The human number next to it isn't a guess: every message, questionnaire, redline and approval the agents made adds the time a human team typically takes for that step, from published benchmarks. This deal comes to about 106 days end to end, and 85 of them before signature, right on the industry median. The vendor sent a real Stripe invoice referencing the PO. Acme's finance agent did a three-way match, took the 2% early-payment discount and paid it. The workspace was provisioned on Cloudflare the moment the payment cleared."
 
 *[Point at the dock chart.]* "The dashed line is humans, built live from this deal's own interactions. The solid line is the agents. That gap is the business."
 
@@ -64,11 +64,11 @@ A full live deal now takes about 5 minutes (real Brainbase research, proposals, 
   - Nobody else closes both sides end to end with enforced authority, payment and provisioning.
 - **"How does the analyst decide?"** Live web search plus Acme's own files: past contracts, policy, pilot usage, and the budget memo. It must cite a URL or a file for every number, and code caps its walk-away at the budget whatever it recommends.
 - **"What if the model hallucinates?"** Then the charter blocks it. You saw it happen live: the offer below the floor, the out-of-channel message, the fraudulent bank-detail change.
-- **"Where does the human number come from?"** Each interaction type carries a typical elapsed time for a human team (an email turn, a security questionnaire, a legal redline, an approval, invoice processing), from published benchmarks. The two vendor tracks run in parallel, like real teams. On a full deal it sums to about 84 days, which lands on the industry median, and the 134-day average is shown as a reference.
+- **"Where does the human number come from?"** Each interaction type carries a typical elapsed time for a human team (an email turn, a security questionnaire, a legal redline, an approval, invoice processing), from published benchmarks. The two vendor tracks run in parallel, like real teams. On a full deal it comes to about 85 days to signature, right on the 84-day industry median, and 106 days end to end including PO, payment and provisioning. Sources per interaction are in docs/HUMAN-CLOCK.md.
 - **"Why two model tiers?"** A frontier model handles the few judgment calls that bind the company; open-weight models handle the high-volume department work. It's cheaper and faster, and it's how an enterprise would actually run this.
 
 ## Sources for the numbers
 
 - 134-day mean and 84-day median B2B SaaS cycle, 2026 (ziellab); security review adds 2–6 weeks (Arcade 2026 benchmark)
 - Forrester: about 20% of B2B sellers face agent-led quote negotiations in 2026; Lio's $30M Series A (a16z, Mar 2026); analysts: fully agent-to-agent B2B deals beyond 2027 (elogic, webpronews)
-- The opening says "134 days on average" because 134 is the mean. The app's own human clock is modeled per interaction and comes to about 84 days on a full deal, the same as the median, so the on-screen multiplier (about 25,000x) is the conservative one.
+- The opening says "134 days on average" because 134 is the mean. The app's own human clock is modeled per interaction from sourced benchmarks (docs/HUMAN-CLOCK.md): about 85 days to signature, matching the median, and about 106 days end to end, so the on-screen multiplier is about 30,000x.

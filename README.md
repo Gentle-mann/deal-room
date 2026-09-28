@@ -16,3 +16,7 @@ npm install
 cp .env .dev.vars   # BRAINBASE_API_KEY, optional STRIPE_SECRET_KEY (test)
 npx wrangler dev
 ```
+
+## Human clock
+
+The "humans" line is not a fixed number. Every interaction the agents perform adds the typical elapsed time a human team takes for that step, from published benchmarks, with vendor tracks in parallel. A full deal comes to about 85 days to signature (industry median: 84) and about 106 days end to end. Values and sources: [docs/HUMAN-CLOCK.md](docs/HUMAN-CLOCK.md).

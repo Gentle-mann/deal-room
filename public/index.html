@@ -144,7 +144,7 @@
 <script type="module">
 import { buildStyle, code, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
 import { createDealChart, fmtDuration } from "/timechart.js";
-import { humanClock, BENCHMARK_DAYS } from "/humanclock.js";
+import { humanClock, BENCHMARK_DAYS, MEDIAN_DAYS } from "/humanclock.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
@@ -456,7 +456,7 @@ function renderTakeover() {
       <div class="headline">${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s</div>
       <div class="subline">vs. ${fmt(hc.total / 86400)} days for a human team</div>
       <div class="hero">${fmt(Math.round(hc.total / exact))}× faster</div>
-      <div class="detail" style="margin-top:4px">Human time modeled from the ${hc.counted} interactions in this deal · industry average ${BENCHMARK_DAYS} days</div>
+      <div class="detail" style="margin-top:4px">Modeled from the ${hc.counted} interactions in this deal: ${fmt(hc.cum[6] / 86400)} days to signature (industry median ${MEDIAN_DAYS}, average ${BENCHMARK_DAYS})</div>
       <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
       <div class="actions">${state.tenant ? `<a class="btn btn-primary" href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${state.invoice?.url ? `<a class="btn btn-ghost" href="${esc(state.invoice.url)}" target="_blank" rel="noopener">Stripe invoice →</a>` : ""}<button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`
     : `<div class="content"><div class="eyebrow">No deal</div><div class="headline">No deal</div>
