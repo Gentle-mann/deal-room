@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { brainbaseDecide, extractJson, waiJson, type AiEnv } from "./agents";
 
 const BB_MODEL = "claude-sonnet-5";
-import { BUYER, VENDORS, buyerViolations, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
+import { BUYER, VENDORS, COMMIT_ARTS, buyerViolations, counterpartPairs, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
 
 type Env = AiEnv & { STRIPE_SECRET_KEY?: string; ALL_BRAINBASE?: string };
 
@@ -22,7 +22,7 @@ export const STAGES = [
 
 type AgentState = AgentDef & { company: string; status: "idle" | "working" | "done" | "fallback" | "error"; calls: number; last?: string };
 type Kind = "stage" | "info" | "offer" | "block" | "flag" | "escalate" | "money" | "win" | "error";
-type Ev = { t: number; company: string; agent?: string; to?: string; art?: string; kind: Kind; text: string };
+type Ev = { t: number; company: string; agent?: string; to?: string; art?: string; kind: Kind; text: string; pairs?: [string, string, string][] };
 type Track = {
   key: string;
   name: string;
@@ -34,6 +34,12 @@ type Track = {
   history: { t: number; by: "buyer" | "vendor"; price: number; asked?: number; blocked?: boolean }[];
 };
 type Profile = { job: string; can: string[]; ask: string[]; prove: string[] };
+// Every real model call an agent makes, for the Spotlight transcript
+export type CallRec = {
+  n: number; agent: string; t0: number; t1?: number; status: "running" | "done"; platform: string; model: string;
+  system: string; input: string; output?: string; via?: string; threadId?: string;
+  check?: { ok: boolean; notes: string[] }; sentTo?: string; art?: string;
+};
 type Limits = { budget: number; aggressive: boolean };
 export type DealState = {
   id: string;
@@ -45,6 +51,8 @@ export type DealState = {
   buyer: string;
   agents: Record<string, AgentState>;
   profiles: Record<string, Profile>;
+  channels: [string, string, string][]; // open counterpart channels between companies
+  callCount: number;
   events: Ev[];
   tracks: Record<string, Track>;
   approval?: { question: string; status: "approved" | "denied"; by: string; reason?: string };
@@ -75,10 +83,45 @@ export class DealRoom extends DurableObject<Env> {
     }
     const tracks: Record<string, Track> = {};
     for (const v of VENDORS) tracks[v.key] = { key: v.key, name: v.name, legalFlags: [], rounds: 0, history: [] };
-    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), events: [], tracks };
+    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), callCount: 0, channels: [], events: [], tracks };
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + 50);
     return { ok: true };
+  }
+
+  lastRec: Record<string, CallRec> = {};
+  ck(r: CallRec) {
+    return `call:${String(r.n).padStart(4, "0")}`;
+  }
+  async rec(agentId: string, system: string, input: string): Promise<CallRec> {
+    const a = this.agent(agentId);
+    const r: CallRec = { n: ++this.d!.callCount, agent: agentId, t0: Date.now(), status: "running", platform: a.platform, model: a.label, system: system.slice(0, 1600), input: input.slice(0, 2200) };
+    this.lastRec[agentId] = r;
+    await this.ctx.storage.put(this.ck(r), r);
+    return r;
+  }
+  async recDone(r: CallRec, patch: Partial<CallRec>) {
+    Object.assign(r, patch, { t1: Date.now(), status: "done" });
+    if (r.output) r.output = r.output.slice(0, 2600);
+    await this.ctx.storage.put(this.ck(r), r);
+  }
+  // Attach the charter check and the recipient to an agent's most recent call
+  async annotate(agentId: string, patch: Partial<CallRec>) {
+    const r = this.lastRec[agentId];
+    if (!r) return;
+    Object.assign(r, patch);
+    await this.ctx.storage.put(this.ck(r), r);
+  }
+  async getCalls(): Promise<CallRec[]> {
+    const m = await this.ctx.storage.list<CallRec>({ prefix: "call:" });
+    return [...m.values()];
+  }
+  // A frontier orchestrator decision on Brainbase, recorded for the Spotlight
+  async bb(agentId: string, opts: { title: string; model: string; instructions: string; input: string }) {
+    const r = await this.rec(agentId, opts.instructions, opts.input);
+    const res = await brainbaseDecide(this.env, { ...opts, onStart: (tid) => { r.threadId = tid; void this.ctx.storage.put(this.ck(r), r); } });
+    await this.recDone(r, { output: res.text, via: res.via, threadId: res.threadId ?? r.threadId });
+    return res;
   }
 
   async getState(): Promise<DealState | null> {
@@ -103,8 +146,25 @@ export class DealRoom extends DurableObject<Env> {
   async save() {
     if (this.d) await this.ctx.storage.put("deal", this.d);
   }
-  ev(company: string, kind: Kind, text: string, agent?: string, to?: string, art?: string) {
-    this.d!.events.push({ t: Date.now(), company, agent, to, art, kind, text });
+  // Is this cross-company message allowed? Orchestrator↔orchestrator, or an open counterpart channel. Commits only from orchestrators.
+  channelCheck(from?: string, to?: string, art?: string): string | null {
+    const d = this.d!;
+    const a = from && d.agents[from], b = to && d.agents[to];
+    if (!a || !b || a.company === b.company) return null;
+    const orch = (x: AgentState) => !x.reportsTo;
+    if (art && COMMIT_ARTS.has(art) && !orch(a)) return `${a.company} ${a.role} cannot commit ${a.company}; only its orchestrator can`;
+    if (orch(a) && orch(b)) return null;
+    if (d.channels.some(([x, y]) => (x === from && y === to) || (x === to && y === from))) return null;
+    return `out of channel: ${a.company} ${a.role} may not message ${b.company} ${b.role}`;
+  }
+  ev(company: string, kind: Kind, text: string, agent?: string, to?: string, art?: string, pairs?: [string, string, string][]) {
+    const violation = this.channelCheck(agent, to, art);
+    if (violation) {
+      this.d!.events.push({ t: Date.now(), company, agent, to: agent, art: "block", kind: "block", text: `BLOCKED by the channel rule, ${violation}. Message not delivered: "${text.slice(0, 160)}"` });
+      if (this.d!.events.length > 400) this.d!.events.shift();
+      return;
+    }
+    this.d!.events.push({ t: Date.now(), company, agent, to, art, kind, text, pairs });
     if (this.d!.events.length > 400) this.d!.events.shift();
   }
   async stage(i: number) {
@@ -137,16 +197,14 @@ export class DealRoom extends DurableObject<Env> {
   async sub<T = any>(agentId: string, system: string, user: string): Promise<{ data: T | null; raw: string }> {
     const a = this.agent(agentId);
     if (a.platform === "Brainbase") {
-      const r = await brainbaseDecide(this.env, {
-        title: `${a.company} ${a.role}`,
-        model: BB_MODEL,
-        instructions: `${system}\nEnd your reply with a single JSON object.`,
-        input: user,
-      });
+      const r = await this.bb(agentId, { title: `${a.company} ${a.role}`, model: BB_MODEL, instructions: `${system}\nEnd your reply with a single JSON object.`, input: user });
       if (r.via === "fallback") a.status = "fallback";
       return { data: extractJson<T>(r.text), raw: r.text };
     }
-    return waiJson<T>(this.env, a.model, system, user);
+    const rec = await this.rec(agentId, system, user);
+    const out = await waiJson<T>(this.env, a.model, system, user);
+    await this.recDone(rec, { output: out.raw, via: "Workers AI" });
+    return out;
   }
   vendor(key: string) {
     return VENDORS.find((v) => v.key === key)!;
@@ -180,8 +238,13 @@ export class DealRoom extends DurableObject<Env> {
     // 1. Intake
     await this.stage(0);
     this.ev(BUYER.name, "info", `Need: ${BUYER.need}. ${BUYER.seats} seats, ${BUYER.termMonths}-month term. Budget set by the judge (private to Acme).`, "acme.orchestrator");
-    this.ev(BUYER.name, "info", `RFP sent to ${VENDORS.map((v) => v.name).join(" and ")}.`, "acme.procurement");
-    for (const v of VENDORS) this.ev(BUYER.name, "info", `RFP delivered to ${v.name}.`, "acme.procurement", v.agents[0].id, "rfp");
+    this.ev(BUYER.name, "info", `RFP sent to ${VENDORS.map((v) => v.name).join(" and ")}.`, "acme.orchestrator");
+    for (const v of VENDORS) {
+      this.ev(BUYER.name, "info", `RFP delivered to ${v.name}'s orchestrator.`, "acme.orchestrator", v.agents[0].id, "rfp");
+      const pairs = counterpartPairs(BUYER.agents.filter((a) => a.reportsTo), v.agents.filter((a) => a.reportsTo));
+      d.channels.push(...pairs);
+      this.ev(BUYER.name, "info", `Channels opened with ${v.name}: ${pairs.map(([x, y, f]) => `${this.agent(x).role} ↔ ${this.agent(y).role} (${f})`).join("; ")}. Everything else is blocked.`, "acme.orchestrator", v.agents[0].id, "channel", pairs);
+    }
 
     // 2. Proposals: each vendor's frontier orchestrator on Brainbase drafts its opening offer, in parallel
     await this.stage(1);
@@ -191,7 +254,7 @@ export class DealRoom extends DurableObject<Env> {
         const r = await this.work(
           orch.id,
           () =>
-            brainbaseDecide(env, {
+            this.bb(orch.id, {
               title: `${v.name} proposal`,
               model: orch.model,
               instructions: `You are the deal orchestrator for ${v.name}, a B2B software company (${v.pitch}). You write opening commercial proposals for enterprise buyers.
@@ -205,9 +268,11 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         const offer = this.normalizeOffer(extractJson(r.text), v);
         const checked = vendorCharter(v, offer);
         for (const b of checked.blocks) this.ev(v.name, "block", `Charter check: ${b}`, orch.id, orch.id, "block");
+        await this.annotate(orch.id, { sentTo: "acme.orchestrator", art: "proposal", check: { ok: checked.blocks.length === 0, notes: checked.blocks.length ? checked.blocks.map((b) => "BLOCKED: " + b) : [`Opening offer within ${v.name}'s charter (list $${fmt(v.listPrice)})`] } });
         d.tracks[v.key].offer = checked.offer;
         d.tracks[v.key].history.push({ t: Date.now(), by: "vendor", price: checked.offer.price, asked: offer.price, blocked: checked.blocks.length > 0 });
-        this.ev(v.name, "offer", `Opening proposal: ${this.offerText(checked.offer)}`, orch.id, "acme.procurement", "proposal");
+        this.ev(v.name, "offer", `Opening proposal: ${this.offerText(checked.offer)}`, orch.id, "acme.orchestrator", "proposal");
+        this.ev(BUYER.name, "info", `Routed ${v.name}'s proposal to Procurement.`, "acme.orchestrator", "acme.procurement", "proposal");
       }),
     );
 
@@ -224,6 +289,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
           (r) => `answered ${(r.data as any)?.answers?.length ?? 0} questions with citations`,
         );
         const answers = JSON.stringify((ans.data as any)?.answers ?? ans.raw).slice(0, 2500);
+        await this.annotate(trust.id, { sentTo: "acme.security", art: "questionnaire", check: { ok: true, notes: ["Answered only from the trust pack, with source IDs"] } });
         this.ev(v.name, "info", `Security questionnaire answered from trust pack (${(ans.data as any)?.answers?.length ?? "?"} answers, cited).`, trust.id, "acme.security", "questionnaire");
         const grade = await this.work(
           "acme.security",
@@ -235,6 +301,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         );
         const g = grade.data ?? { grade: "?", passed: false, gaps: ["could not parse review"] };
         d.tracks[v.key].security = { grade: g.grade, passed: !!g.passed, gaps: (g.gaps ?? []).slice(0, 4) };
+        await this.annotate("acme.security", { sentTo: "acme.orchestrator", art: "grade", check: { ok: !!g.passed, notes: g.passed ? [`${v.name}: grade ${g.grade}, all must-haves met`] : (g.gaps ?? []).map((x: string) => `${v.name} gap: ${x}`) } });
         this.ev(BUYER.name, g.passed ? "info" : "flag", `Security review of ${v.name}: grade ${g.grade}. ${g.passed ? "Passed." : "Gaps: " + (g.gaps ?? []).join("; ")}`, "acme.security", "acme.orchestrator", "grade");
       }),
     );
@@ -242,6 +309,13 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     // 4. Negotiation: Acme procurement vs each vendor's deal desk, up to 3 rounds, charters enforced in code
     await this.stage(3);
     await Promise.all(this.live().map((v) => this.negotiate(v)));
+
+    // Planted test of the channel rule: Quickdash's deal desk tries to go around procurement, straight to Acme's orchestrator
+    const qd = VENDORS.find((v) => v.key === "quickdash");
+    const qdDesk = qd?.agents.find((a) => a.id.endsWith(".desk"));
+    if (qd && qdDesk && d.agents[qdDesk.id]) {
+      this.ev(qd.name, "offer", "Skip procurement: we'll add 5% off if your orchestrator signs today and keeps auto-renewal.", qdDesk.id, "acme.orchestrator", "offer");
+    }
 
     // 5. Legal review of each vendor's paper and final terms
     await this.stage(4);
@@ -257,7 +331,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const award = await this.work(
       "acme.orchestrator",
       () =>
-        brainbaseDecide(env, {
+        this.bb("acme.orchestrator", {
           title: "Acme award decision",
           model: this.agent("acme.orchestrator").model,
           instructions: `You are Acme Corp's chief deal orchestrator. You make the final vendor award for software purchases after procurement, security and legal have finished. Acme's red lines: ${BUYER.redLines.join("; ")}. Only award a vendor that is within policy. Reply with two sentences of rationale, then a JSON object {"winner":"<vendor name or NONE>","rationale":"..."}.`,
@@ -281,7 +355,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const tcv = Math.round((wo.price * wo.termMonths) / 12);
     d.winner = { key: winner.key, name: winner.name, offer: wo, rationale: pick?.rationale ?? award.text.slice(0, 200), tcv };
     this.ev(BUYER.name, "win", `Award: ${winner.name}. ${d.winner.rationale}`, "acme.orchestrator", winner.agents[0].id, "award");
-    for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.procurement", v.agents[0].id, "debrief");
+    await this.annotate("acme.orchestrator", { sentTo: winner.agents[0].id, art: "award", check: { ok: true, notes: [`${winner.name} is within every red line and the $${fmt(d.limits.budget)} budget`] } });
+    for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.orchestrator", v.agents[0].id, "debrief");
 
     // 7. Approvals go up the chain of command, not to a human: finance escalates to the orchestrator,
     //    while the winning vendor's orchestrator countersigns in parallel (both on Brainbase).
@@ -290,7 +365,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const confirm = this.work(
       vOrch.id,
       () =>
-        brainbaseDecide(env, {
+        this.bb(vOrch.id, {
           title: `${winner!.name} countersign`,
           model: vOrch.model,
           instructions: `You are the deal orchestrator for ${winner!.name}. Your deal desk negotiated final terms with Acme Corp. Confirm whether you countersign. Reply with one sentence, then JSON {"countersign":true|false,"note":"..."}.`,
@@ -306,7 +381,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       const ruling = await this.work(
         "acme.orchestrator",
         () =>
-          brainbaseDecide(env, {
+          this.bb("acme.orchestrator", {
             title: "Acme approval",
             model: this.agent("acme.orchestrator").model,
             instructions: `You are Acme Corp's chief deal orchestrator, the top of Acme's chain of command for software purchases. Your delegated authority: approve contracts up to $${fmt(BUYER.orchestratorAuthorityTcv)} total contract value, provided every red line is met (${BUYER.redLines.join("; ")}). Acme's finance agent has escalated an approval request to you. Reply with one sentence, then JSON {"approve":true|false,"reason":"..."}.`,
@@ -325,12 +400,14 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         this.ev(BUYER.name, "block", `Charter check: ${reason}`, "acme.orchestrator", "acme.orchestrator", "block");
       }
       d.approval = { question, status: ok ? "approved" : "denied", by: "Acme orchestrator", reason };
+      await this.annotate("acme.orchestrator", { sentTo: "acme.finance", art: ok ? "approve" : "deny", check: { ok, notes: [reason, `Total $${fmt(tcv)} vs. orchestrator authority $${fmt(BUYER.orchestratorAuthorityTcv)}`] } });
       this.ev(BUYER.name, ok ? "win" : "block", `Orchestrator ${ok ? "approved" : "denied"}: ${reason}`, "acme.orchestrator", "acme.finance", ok ? "approve" : "deny");
       approved = ok;
     }
     const conf = await confirm;
     if (conf.via === "fallback") this.agent(vOrch.id).status = "fallback";
     this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.`, vOrch.id, "acme.orchestrator", "signature");
+    await this.annotate(vOrch.id, { sentTo: "acme.orchestrator", art: "signature", check: { ok: true, notes: ["Countersigned the final terms"] } });
     if (!approved) {
       this.ev(BUYER.name, "block", "The orchestrator denied the award. Deal stopped.", "acme.orchestrator");
       await this.finish();
@@ -390,6 +467,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         );
         const c = counter.data ?? {};
         t.history.push({ t: Date.now(), by: "buyer", price: Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price });
+        await this.annotate("acme.procurement", { sentTo: desk.id, art: "counter", check: { ok: (Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || 0) <= d.limits.budget, notes: [`Ask stays under Acme's private budget $${fmt(d.limits.budget)}`] } });
         this.ev(BUYER.name, "offer", `To ${v.name} (round ${round}): "${c.message ?? "Counter-proposal"}" Asks $${fmt(Number(c.price) || current.price)}/yr, net ${c.paymentDays ?? "?"}, auto-renew ${c.autoRenew ? "yes" : "no"}.`, "acme.procurement", desk.id, "counter");
       const reply = await this.work(
         desk.id,
@@ -404,6 +482,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       for (const b of checked.blocks) this.ev(v.name, "block", `BLOCKED by ${v.name}'s charter: ${b}`, desk.id, desk.id, "block");
       t.offer = checked.offer;
       t.history.push({ t: Date.now(), by: "vendor", price: checked.offer.price, asked: proposed.price, blocked: checked.blocks.length > 0 });
+      await this.annotate(desk.id, { sentTo: "acme.procurement", art: "offer", check: { ok: checked.blocks.length === 0, notes: checked.blocks.length ? checked.blocks.map((b) => "BLOCKED: " + b) : [`Within ${v.name}'s charter: floor $${fmt(v.floor)}, max discount ${v.maxDiscountPct}%, max net ${v.maxPaymentDays}`] } });
       this.ev(v.name, "offer", `Round ${round}: "${reply.data?.message ?? "Revised offer"}" ${this.offerText(checked.offer)}`, desk.id, "acme.procurement", "offer");
       await this.save();
     }
@@ -422,6 +501,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     );
     const flags = [...(review.data?.flags ?? []), ...buyerViolations(BUYER, d.limits.budget, t.offer!)];
     t.legalFlags = Array.from(new Set(flags)).slice(0, 5);
+    await this.annotate("acme.legal", { sentTo: "acme.orchestrator", art: "redline", check: { ok: t.legalFlags.length === 0, notes: t.legalFlags.length ? t.legalFlags.map((f) => `${v.name}: ${f}`) : [`${v.name}: no red-line violations`] } });
     if (t.legalFlags.length) this.ev(BUYER.name, "flag", `Legal flags on ${v.name}: ${t.legalFlags.join("; ")}`, "acme.legal", v.agents.find((a) => a.id.endsWith(".trust"))!.id, "redline");
     const hard = buyerViolations(BUYER, d.limits.budget, t.offer!);
     if (hard.length) {
@@ -448,6 +528,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       (r) => `${r.data?.payNow ? "pay now" : "pay at term"}: ${r.data?.reason ?? ""}`,
     );
     const payNow = earlyPay.data?.payNow ?? true;
+    await this.annotate("acme.finance", { sentTo: (v.agents.find((a) => a.id.endsWith(".desk")) ?? v.agents[0]).id, art: "payment", check: { ok: true, notes: [`Three-way match: ${d.po} = order form = invoice`, payNow ? "Pay now: capture the 2% early-payment discount" : "Pay at term"] } });
     const amount = Math.round(o.price * (payNow ? 0.98 : 1));
     this.ev(BUYER.name, "money", `Treasury: ${payNow ? `pay now and capture the 2% early-payment discount ($${fmt(o.price * 0.02)})` : "pay at term"}. Three-way match: PO ${d.po} = order form = invoice. OK.`, "acme.finance");
     if (!key) {

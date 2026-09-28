@@ -175,6 +175,14 @@ $("#vendors").onclick = () => { if (vendorCount < VENDOR_NAMES.length) { vendorC
 $("#pause").onclick = () => { paused = !paused; $("#pause").textContent = paused ? "Resume traffic" : "Pause traffic"; };
 window.addEventListener("resize", () => cy.resize());
 render(false);
+if (new URLSearchParams(location.search).get("tour")) {
+  const pill = document.createElement("div");
+  pill.textContent = "Demo tour · scale simulation";
+  pill.style.cssText = "position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:7;font-size:11px;letter-spacing:.8px;text-transform:uppercase;border:1px solid #e0a800;color:#e0a800;background:var(--bg);padding:4px 10px;border-radius:999px";
+  document.querySelector(".stage").appendChild(pill);
+  const steps = [() => $("#grow").click(), () => $("#grow").click(), () => $("#vendors").click(), () => $("#vendors").click()];
+  steps.forEach((fn, i) => setTimeout(fn, 2500 + i * 4500));
+}
 </script>
 </body>
 </html>

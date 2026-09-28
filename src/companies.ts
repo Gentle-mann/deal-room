@@ -18,6 +18,7 @@ export type AgentDef = {
   model: string; // Brainbase model name or Workers AI model id
   label: string; // human-readable model name for the UI
   reportsTo?: string; // chain of command: the agent this one reports to
+  functions?: string[]; // business functions this agent covers; cross-company channels only connect matching functions
 };
 
 export type Buyer = {
@@ -80,10 +81,10 @@ export const BUYER: Buyer = {
   orchestratorAuthorityTcv: 500_000,
   agents: [
     { id: "acme.orchestrator", role: "Chief deal orchestrator", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-    { id: "acme.procurement", reportsTo: "acme.orchestrator", role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.security", reportsTo: "acme.orchestrator", role: "Security & privacy", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.legal", reportsTo: "acme.orchestrator", role: "Legal", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
-    { id: "acme.finance", reportsTo: "acme.orchestrator", role: "Finance & AP", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.procurement", reportsTo: "acme.orchestrator", functions: ["commercial"], role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.security", reportsTo: "acme.orchestrator", functions: ["security"], role: "Security & privacy", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.legal", reportsTo: "acme.orchestrator", functions: ["legal"], role: "Legal", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
+    { id: "acme.finance", reportsTo: "acme.orchestrator", functions: ["finance"], role: "Finance & AP", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
   ],
 };
 
@@ -114,8 +115,8 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "First Republic Trust ****4417",
     agents: [
       { id: "beacon.orchestrator", role: "Orchestrator & pricing authority", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "beacon.trust", reportsTo: "beacon.orchestrator", role: "Trust & legal", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
-      { id: "beacon.desk", reportsTo: "beacon.orchestrator", role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
+      { id: "beacon.trust", reportsTo: "beacon.orchestrator", functions: ["security", "legal"], role: "Trust & legal", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
+      { id: "beacon.desk", reportsTo: "beacon.orchestrator", functions: ["commercial", "finance"], role: "Deal desk, billing & ops", platform: "Workers AI", model: "@cf/meta/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout (open)" },
     ],
   },
   {
@@ -141,8 +142,8 @@ export const VENDORS: Vendor[] = [
     bankOnFile: "Pacific Commerce Bank ****2290",
     agents: [
       { id: "quickdash.orchestrator", role: "Orchestrator & sales", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
-      { id: "quickdash.trust", reportsTo: "quickdash.orchestrator", role: "Trust & legal", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
-      { id: "quickdash.desk", reportsTo: "quickdash.orchestrator", role: "Deal desk & billing", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
+      { id: "quickdash.trust", reportsTo: "quickdash.orchestrator", functions: ["security", "legal"], role: "Trust & legal", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
+      { id: "quickdash.desk", reportsTo: "quickdash.orchestrator", functions: ["commercial", "finance"], role: "Deal desk & billing", platform: "Workers AI", model: "@cf/mistralai/mistral-small-3.1-24b-instruct", label: "Mistral Small 3.1 (open)" },
     ],
   },
 ];
@@ -193,3 +194,15 @@ export function buyerViolations(b: Buyer, budget: number, o: Offer): string[] {
 }
 
 export const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+
+// Channel rule: orchestrators talk to orchestrators; subagents talk only to their counterpart
+// (a shared business function) at the other company. Only orchestrators can commit.
+export const COMMIT_ARTS = new Set(["award", "signature", "approve", "deny"]);
+export function counterpartPairs(buyerAgents: AgentDef[], vendorAgents: AgentDef[]): [string, string, string][] {
+  const pairs: [string, string, string][] = [];
+  for (const b of buyerAgents) for (const v of vendorAgents) {
+    const shared = (b.functions ?? []).filter((f) => (v.functions ?? []).includes(f));
+    if (shared.length) pairs.push([b.id, v.id, shared.join(" + ")]);
+  }
+  return pairs;
+}

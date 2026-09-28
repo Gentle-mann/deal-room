@@ -31,6 +31,7 @@ export default {
       }
       if (p[1] === "deals" && p[2]) {
         if (req.method === "GET" && p.length === 3) return json(await stub(env, p[2]).getState());
+        if (req.method === "GET" && p[3] === "calls") return json(await stub(env, p[2]).getCalls());
       }
       // Dev-only: raw Workers AI output and latency for a model
       if (p[1] === "debug-ai" && url.hostname === "localhost") {

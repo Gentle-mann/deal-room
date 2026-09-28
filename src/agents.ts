@@ -48,7 +48,7 @@ export async function waiJson<T = any>(env: AiEnv, model: string, system: string
 // Falls back to a Workers AI model if Brainbase is off, fails, or is too slow, so the live demo never stalls.
 export async function brainbaseDecide(
   env: AiEnv,
-  opts: { title: string; instructions: string; input: string; model: string; timeoutMs?: number },
+  opts: { title: string; instructions: string; input: string; model: string; timeoutMs?: number; onStart?: (threadId: string) => void },
 ): Promise<{ text: string; via: "Brainbase" | "fallback"; threadId?: string; seconds: number }> {
   const t0 = Date.now();
   const fallback = async () => {
@@ -71,6 +71,7 @@ export async function brainbaseDecide(
     const body: any = await res.json().catch(() => ({}));
     if (!res.ok || !body.thread_id) return fallback();
     const id = body.thread_id as string;
+    try { opts.onStart?.(id); } catch {}
     const deadline = t0 + (opts.timeoutMs ?? 150_000);
     while (Date.now() < deadline) {
       await sleep(2500);

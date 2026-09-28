@@ -4,7 +4,7 @@
 export const RED = "#ff4d4f", GREEN = "#2fbf71", AMBER = "#e0a800";
 export const ART = { rfp:"📨", proposal:"📄", questionnaire:"🔒", grade:"✔", counter:"💬", offer:"💬", redline:"✍", award:"🏆", debrief:"✉",
   escalate:"⤴", approve:"✅", deny:"⛔", signature:"✒", fraud:"☠", po:"📋", invoice:"🧾", payment:"💳", provision:"🚀", eliminate:"✕", block:"⛔",
-  task:"▸", result:"◂" };
+  task:"▸", result:"◂", channel:"🔗" };
 
 // ---------- themes ----------
 export const THEMES = {
@@ -72,6 +72,9 @@ export function buildStyle(extra = []) {
     { selector: "edge.flash", style: { "line-color":T.flash, "target-arrow-color":T.flash, "line-style":"solid" } },
     { selector: "edge.flash.bad", style: { "line-color":RED, "target-arrow-color":RED } },
     { selector: "edge.flash.money", style: { "line-color":GREEN, "target-arrow-color":GREEN } },
+    { selector: "edge.chan", style: { "curve-style":"unbundled-bezier", "control-point-distances":[30], "control-point-weights":[0.5], "width":1, "line-color":T.reports, "line-style":"dotted", "events":"no" } },
+    { selector: ".dim", style: { "opacity":0.1 } },
+    { selector: "node.agent.spot", style: { "overlay-color":AMBER, "overlay-opacity":0.14, "overlay-padding":14, "overlay-shape":"round-rectangle" } },
     ...extra,
   ];
 }
