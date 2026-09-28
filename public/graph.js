@@ -150,3 +150,44 @@ export function sendPacket(cy, fromId, toId, opts = {}) {
   const p = cy.add({ group:"nodes", data:{ id:pid, label: opts.label || "•" }, position:{ ...from.position() }, classes:"packet " + (opts.dot ? "dot " : "") + cls });
   p.animate({ position:{ ...to.position() } }, { duration: opts.duration ?? 850, easing:"ease-in-out-cubic", complete: () => p.remove() });
 }
+
+// Cone layout for large organizations: each company is a cone whose tip is its orchestrator.
+// Every level of the chain of command sits on a wider arc, so the org expands in a triangle.
+// Buyer's cone points left; vendor cones fan around the right side so the picture stays wide.
+export function coneLayout(companies, opt = {}) {
+  const LEVEL = opt.levelGap ?? 260, CENTER = opt.center ?? 260;
+  const pos = {}, levels = {}, anchors = {};
+  const buyer = companies.find((c) => c.buyer), vendors = companies.filter((c) => !c.buyer);
+  const spread = Math.min(110, 150 / Math.max(1, vendors.length)) * Math.PI / 180;
+  const plan = [];
+  if (buyer) plan.push({ c: buyer, axis: Math.PI, half: 55 * Math.PI / 180 });
+  vendors.forEach((c, i) => {
+    const axis = vendors.length === 1 ? 0 : (-60 + (120 * i) / (vendors.length - 1)) * Math.PI / 180;
+    plan.push({ c, axis, half: Math.min(55 * Math.PI / 180, spread / 2) });
+  });
+  for (const { c, axis, half } of plan) {
+    const agents = c.members.filter((m) => !m.human);
+    const ids = new Set(agents.map((m) => m.id));
+    const kids = {}; const roots = [];
+    for (const m of agents) { if (m.reportsTo && ids.has(m.reportsTo)) (kids[m.reportsTo] ||= []).push(m.id); else roots.push(m.id); }
+    const leaves = [];
+    const walk = (id, d) => { levels[id] = d; const ch = kids[id] || []; if (!ch.length) leaves.push(id); ch.forEach((k) => walk(k, d + 1)); };
+    roots.forEach((r) => walk(r, 0));
+    const ang = {};
+    leaves.forEach((id, i) => { ang[id] = leaves.length === 1 ? 0 : -half + (2 * half * i) / (leaves.length - 1); });
+    const angleOf = (id) => { if (ang[id] !== undefined && !(kids[id] || []).length) return ang[id]; const ch = kids[id] || []; const a = ch.map(angleOf); return (ang[id] = (a[0] + a[a.length - 1]) / 2); };
+    roots.forEach(angleOf);
+    const root = { x: Math.cos(axis) * CENTER, y: Math.sin(axis) * CENTER };
+    anchors[c.name] = { ...root, axis };
+    for (const m of agents) {
+      const r = levels[m.id] * LEVEL, a = axis + (ang[m.id] ?? 0);
+      pos[m.id] = { x: root.x + Math.cos(a) * r, y: root.y + Math.sin(a) * r };
+    }
+    for (const h of c.members.filter((m) => m.human)) {
+      const o = pos[h.oversees] || root;
+      pos[h.id] = { x: o.x + Math.cos(axis + Math.PI / 2) * 90, y: o.y + Math.sin(axis + Math.PI / 2) * 90 - 40 };
+      levels[h.id] = -1;
+    }
+  }
+  return { pos, levels, anchors };
+}
