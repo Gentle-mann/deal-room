@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CFO approval</title>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; background:#0a0e1a; color:#e8ecf6; min-height:100vh; display:grid; place-items:center; padding:16px; }
+  .card { max-width:420px; width:100%; background:#111830; border:1px solid #243056; border-radius:16px; padding:22px; text-align:center; }
+  h1 { font-size:20px; margin:0 0 10px; } p { color:#b8c2e0; }
+  button { width:100%; padding:16px; font-size:18px; font-weight:700; border:0; border-radius:12px; margin-top:10px; cursor:pointer; }
+  .yes { background:#4fd98d; color:#062012; } .no { background:#2a3358; color:#e8ecf6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Acme Corp · CFO approval</h1>
+  <p id="q">Waiting for an escalation…</p>
+  <button class="yes" id="yes" disabled>Approve</button>
+  <button class="no" id="no" disabled>Deny</button>
+</div>
+<script>
+const id = new URLSearchParams(location.search).get("deal");
+const send = (approve) => fetch(`/api/deals/${id}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approve }) });
+document.getElementById("yes").onclick = () => send(true);
+document.getElementById("no").onclick = () => send(false);
+setInterval(async () => {
+  const s = await fetch(`/api/deals/${id}`).then((r) => r.json()).catch(() => null);
+  const a = s?.approval;
+  const pending = a?.status === "pending";
+  document.getElementById("q").textContent = a ? (pending ? a.question : `Decision recorded: ${a.status}`) : "Waiting for an escalation…";
+  document.getElementById("yes").disabled = !pending;
+  document.getElementById("no").disabled = !pending;
+}, 1000);
+</script>
+</body>
+</html>
