@@ -22,7 +22,7 @@ export const STAGES = [
 
 type AgentState = AgentDef & { company: string; status: "idle" | "working" | "done" | "fallback" | "error"; calls: number; last?: string };
 type Kind = "stage" | "info" | "offer" | "block" | "flag" | "escalate" | "money" | "win" | "error";
-type Ev = { t: number; company: string; agent?: string; kind: Kind; text: string };
+type Ev = { t: number; company: string; agent?: string; to?: string; art?: string; kind: Kind; text: string };
 type Track = {
   key: string;
   name: string;
@@ -31,7 +31,9 @@ type Track = {
   legalFlags: string[];
   eliminated?: string;
   rounds: number;
+  history: { t: number; by: "buyer" | "vendor"; price: number; asked?: number; blocked?: boolean }[];
 };
+type Profile = { job: string; can: string[]; ask: string[]; prove: string[] };
 type Limits = { budget: number; aggressive: boolean };
 export type DealState = {
   id: string;
@@ -42,12 +44,13 @@ export type DealState = {
   limits: Limits;
   buyer: string;
   agents: Record<string, AgentState>;
+  profiles: Record<string, Profile>;
   events: Ev[];
   tracks: Record<string, Track>;
   approval?: { question: string; status: "pending" | "approved" | "denied"; by?: string };
   winner?: { key: string; name: string; offer: Offer; rationale: string; tcv: number };
   po?: string;
-  invoice?: { id: string; status: string; amount: number; url?: string; live: boolean };
+  invoice?: { id: string; number?: string; status: string; amount: number; url?: string; live: boolean; vendor?: string; dueDays?: number; sentAt?: number; paidAt?: number; simulated?: boolean };
   tenant?: { path: string; at: number };
   done?: boolean;
 };
@@ -71,8 +74,8 @@ export class DealRoom extends DurableObject<Env> {
       }
     }
     const tracks: Record<string, Track> = {};
-    for (const v of VENDORS) tracks[v.key] = { key: v.key, name: v.name, legalFlags: [], rounds: 0 };
-    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, events: [], tracks };
+    for (const v of VENDORS) tracks[v.key] = { key: v.key, name: v.name, legalFlags: [], rounds: 0, history: [] };
+    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), events: [], tracks };
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + 50);
     return { ok: true };
@@ -88,7 +91,7 @@ export class DealRoom extends DurableObject<Env> {
     if (!d?.approval || d.approval.status !== "pending") return { ok: false };
     d.approval.status = approve ? "approved" : "denied";
     d.approval.by = "Human CFO (phone)";
-    this.ev(BUYER.name, approve ? "win" : "block", `CFO ${approve ? "APPROVED" : "DENIED"} on phone: ${d.approval.question}`);
+    this.ev(BUYER.name, approve ? "win" : "block", `CFO ${approve ? "APPROVED" : "DENIED"} on phone: ${d.approval.question}`, "human.cfo", "acme.finance", approve ? "approve" : "deny");
     await this.save();
     return { ok: true };
   }
@@ -109,8 +112,8 @@ export class DealRoom extends DurableObject<Env> {
   async save() {
     if (this.d) await this.ctx.storage.put("deal", this.d);
   }
-  ev(company: string, kind: Kind, text: string, agent?: string) {
-    this.d!.events.push({ t: Date.now(), company, agent, kind, text });
+  ev(company: string, kind: Kind, text: string, agent?: string, to?: string, art?: string) {
+    this.d!.events.push({ t: Date.now(), company, agent, to, art, kind, text });
     if (this.d!.events.length > 400) this.d!.events.shift();
   }
   async stage(i: number) {
@@ -187,6 +190,7 @@ export class DealRoom extends DurableObject<Env> {
     await this.stage(0);
     this.ev(BUYER.name, "info", `Need: ${BUYER.need}. ${BUYER.seats} seats, ${BUYER.termMonths}-month term. Budget set by the judge (private to Acme).`, "acme.orchestrator");
     this.ev(BUYER.name, "info", `RFP sent to ${VENDORS.map((v) => v.name).join(" and ")}.`, "acme.procurement");
+    for (const v of VENDORS) this.ev(BUYER.name, "info", `RFP delivered to ${v.name}.`, "acme.procurement", v.agents[0].id, "rfp");
 
     // 2. Proposals: each vendor's frontier orchestrator on Brainbase drafts its opening offer, in parallel
     await this.stage(1);
@@ -209,9 +213,10 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         if (r.via === "fallback") this.agent(orch.id).status = "fallback";
         const offer = this.normalizeOffer(extractJson(r.text), v);
         const checked = vendorCharter(v, offer);
-        for (const b of checked.blocks) this.ev(v.name, "block", `Charter check: ${b}`, orch.id);
+        for (const b of checked.blocks) this.ev(v.name, "block", `Charter check: ${b}`, orch.id, orch.id, "block");
         d.tracks[v.key].offer = checked.offer;
-        this.ev(v.name, "offer", `Opening proposal: ${this.offerText(checked.offer)}`, orch.id);
+        d.tracks[v.key].history.push({ t: Date.now(), by: "vendor", price: checked.offer.price, asked: offer.price, blocked: checked.blocks.length > 0 });
+        this.ev(v.name, "offer", `Opening proposal: ${this.offerText(checked.offer)}`, orch.id, "acme.procurement", "proposal");
       }),
     );
 
@@ -228,7 +233,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
           (r) => `answered ${(r.data as any)?.answers?.length ?? 0} questions with citations`,
         );
         const answers = JSON.stringify((ans.data as any)?.answers ?? ans.raw).slice(0, 2500);
-        this.ev(v.name, "info", `Security questionnaire answered from trust pack (${(ans.data as any)?.answers?.length ?? "?"} answers, cited).`, trust.id);
+        this.ev(v.name, "info", `Security questionnaire answered from trust pack (${(ans.data as any)?.answers?.length ?? "?"} answers, cited).`, trust.id, "acme.security", "questionnaire");
         const grade = await this.work(
           "acme.security",
           () =>
@@ -239,7 +244,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         );
         const g = grade.data ?? { grade: "?", passed: false, gaps: ["could not parse review"] };
         d.tracks[v.key].security = { grade: g.grade, passed: !!g.passed, gaps: (g.gaps ?? []).slice(0, 4) };
-        this.ev(BUYER.name, g.passed ? "info" : "flag", `Security review of ${v.name}: grade ${g.grade}. ${g.passed ? "Passed." : "Gaps: " + (g.gaps ?? []).join("; ")}`, "acme.security");
+        this.ev(BUYER.name, g.passed ? "info" : "flag", `Security review of ${v.name}: grade ${g.grade}. ${g.passed ? "Passed." : "Gaps: " + (g.gaps ?? []).join("; ")}`, "acme.security", "acme.orchestrator", "grade");
       }),
     );
 
@@ -284,8 +289,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const wo = d.tracks[winner.key].offer!;
     const tcv = Math.round((wo.price * wo.termMonths) / 12);
     d.winner = { key: winner.key, name: winner.name, offer: wo, rationale: pick?.rationale ?? award.text.slice(0, 200), tcv };
-    this.ev(BUYER.name, "win", `Award: ${winner.name}. ${d.winner.rationale}`, "acme.orchestrator");
-    for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.procurement");
+    this.ev(BUYER.name, "win", `Award: ${winner.name}. ${d.winner.rationale}`, "acme.orchestrator", winner.agents[0].id, "award");
+    for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.procurement", v.agents[0].id, "debrief");
 
     // 7. Approvals: CFO sign-off above threshold (human, on phone) while the winning vendor confirms (Brainbase), in parallel
     await this.stage(6);
@@ -304,7 +309,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     let approved = true;
     if (tcv > BUYER.cfoApprovalOverTcv) {
       d.approval = { question: `Approve ${winner.name} at $${fmt(wo.price)}/yr, total $${fmt(tcv)} over ${wo.termMonths} months?`, status: "pending" };
-      this.ev(BUYER.name, "escalate", `Total contract value $${fmt(tcv)} exceeds the $${fmt(BUYER.cfoApprovalOverTcv)} delegated limit. Escalated to the human CFO.`, "acme.finance");
+      this.ev(BUYER.name, "escalate", `Total contract value $${fmt(tcv)} exceeds the $${fmt(BUYER.cfoApprovalOverTcv)} delegated limit. Escalated to the human CFO.`, "acme.finance", "human.cfo", "escalate");
       await this.save();
       const until = Date.now() + 240_000;
       while (d.approval.status === "pending" && Date.now() < until) await new Promise((r) => setTimeout(r, 1000));
@@ -317,7 +322,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     }
     const conf = await confirm;
     if (conf.via === "fallback") this.agent(vOrch.id).status = "fallback";
-    this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.`, vOrch.id);
+    this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.`, vOrch.id, "acme.orchestrator", "signature");
     if (!approved) {
       this.ev(BUYER.name, "block", "CFO denied the award. Deal stopped.", "acme.finance");
       await this.finish();
@@ -328,9 +333,9 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     await this.stage(7);
     const sanctioned = ["Grom Holdings", "Volga Data"]; // demo stub of a sanctions list
     this.ev(BUYER.name, "info", `Sanctions screen: ${winner.name} ${sanctioned.includes(winner.name) ? "MATCH" : "clear"} (demo list).`, "acme.finance");
-    this.ev(BUYER.name, "block", `Bank-detail change request received by email ("please pay our new account ****9911"). Does not match verified account ${winner.bankOnFile}. Blocked as likely vendor fraud.`, "acme.finance");
+    this.ev(BUYER.name, "block", `Bank-detail change request received by email ("please pay our new account ****9911"). Does not match verified account ${winner.bankOnFile}. Blocked as likely vendor fraud.`, "ext.email", "acme.finance", "fraud");
     d.po = `PO-${new Date().getFullYear()}-${d.id.toUpperCase()}`;
-    this.ev(BUYER.name, "info", `Purchase order ${d.po} issued to ${winner.name}.`, "acme.procurement");
+    this.ev(BUYER.name, "info", `Purchase order ${d.po} issued to ${winner.name}.`, "acme.procurement", (winner.agents.find((a) => a.id.endsWith(".desk")) ?? winner.agents[0]).id, "po");
 
     // 9. Invoice & payment
     await this.stage(8);
@@ -339,9 +344,9 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     // 10. Provisioning
     await this.stage(9);
     d.tenant = { path: `/t/${d.id}`, at: Date.now() };
-    const desk = winner.agents.find((a) => a.id.endsWith(".desk") || a.id.endsWith(".trust"))!;
+    const desk = winner.agents.find((a) => a.id.endsWith(".desk")) ?? winner.agents.find((a) => a.id.endsWith(".trust"))!;
     this.agent(desk.id).last = `Provisioned ${BUYER.name} workspace: ${wo.seats} seats`;
-    this.ev(winner.name, "win", `Payment cleared. ${BUYER.name} workspace provisioned with ${wo.seats} seats: ${d.tenant.path}`, desk.id);
+    this.ev(winner.name, "win", `Payment cleared. ${BUYER.name} workspace provisioned with ${wo.seats} seats: ${d.tenant.path}`, desk.id, "cloudflare", "provision");
     await this.finish();
   }
 
@@ -376,7 +381,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
           (r) => `round ${round} counter to ${v.name}: ${r.data?.message ?? ""}`,
         );
         const c = counter.data ?? {};
-        this.ev(BUYER.name, "offer", `To ${v.name} (round ${round}): "${c.message ?? "Counter-proposal"}" Asks $${fmt(Number(c.price) || current.price)}/yr, net ${c.paymentDays ?? "?"}, auto-renew ${c.autoRenew ? "yes" : "no"}.`, "acme.procurement");
+        t.history.push({ t: Date.now(), by: "buyer", price: Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price });
+        this.ev(BUYER.name, "offer", `To ${v.name} (round ${round}): "${c.message ?? "Counter-proposal"}" Asks $${fmt(Number(c.price) || current.price)}/yr, net ${c.paymentDays ?? "?"}, auto-renew ${c.autoRenew ? "yes" : "no"}.`, "acme.procurement", desk.id, "counter");
       const reply = await this.work(
         desk.id,
         () =>
@@ -387,9 +393,10 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       );
       const proposed = this.normalizeOffer(reply.data, v, current);
       const checked = vendorCharter(v, proposed);
-      for (const b of checked.blocks) this.ev(v.name, "block", `BLOCKED by ${v.name}'s charter: ${b}`, desk.id);
+      for (const b of checked.blocks) this.ev(v.name, "block", `BLOCKED by ${v.name}'s charter: ${b}`, desk.id, desk.id, "block");
       t.offer = checked.offer;
-      this.ev(v.name, "offer", `Round ${round}: "${reply.data?.message ?? "Revised offer"}" ${this.offerText(checked.offer)}`, desk.id);
+      t.history.push({ t: Date.now(), by: "vendor", price: checked.offer.price, asked: proposed.price, blocked: checked.blocks.length > 0 });
+      this.ev(v.name, "offer", `Round ${round}: "${reply.data?.message ?? "Revised offer"}" ${this.offerText(checked.offer)}`, desk.id, "acme.procurement", "offer");
       await this.save();
     }
   }
@@ -407,11 +414,11 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     );
     const flags = [...(review.data?.flags ?? []), ...buyerViolations(BUYER, d.limits.budget, t.offer!)];
     t.legalFlags = Array.from(new Set(flags)).slice(0, 5);
-    if (t.legalFlags.length) this.ev(BUYER.name, "flag", `Legal flags on ${v.name}: ${t.legalFlags.join("; ")}`, "acme.legal");
+    if (t.legalFlags.length) this.ev(BUYER.name, "flag", `Legal flags on ${v.name}: ${t.legalFlags.join("; ")}`, "acme.legal", v.agents.find((a) => a.id.endsWith(".trust"))!.id, "redline");
     const hard = buyerViolations(BUYER, d.limits.budget, t.offer!);
     if (hard.length) {
       t.eliminated = hard.join("; ");
-      this.ev(BUYER.name, "block", `${v.name} eliminated: ${t.eliminated}.`, "acme.legal");
+      this.ev(BUYER.name, "block", `${v.name} eliminated: ${t.eliminated}.`, "acme.legal", "acme.orchestrator", "eliminate");
     } else if (!t.security?.passed) {
       t.eliminated = `security gaps: ${(t.security?.gaps ?? []).join("; ")}`;
       this.ev(BUYER.name, "block", `${v.name} eliminated on security: ${t.eliminated}.`, "acme.security");
@@ -436,8 +443,16 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     const amount = Math.round(o.price * (payNow ? 0.98 : 1));
     this.ev(BUYER.name, "money", `Treasury: ${payNow ? `pay now and capture the 2% early-payment discount ($${fmt(o.price * 0.02)})` : "pay at term"}. Three-way match: PO ${d.po} = order form = invoice. OK.`, "acme.finance");
     if (!key) {
-      d.invoice = { id: "in_simulated", status: "paid (simulated, no Stripe key)", amount, live: false };
-      this.ev(v.name, "money", `Invoice for $${fmt(amount)} marked paid (simulated: add STRIPE_SECRET_KEY for a real Stripe invoice).`);
+      const deskId = (v.agents.find((a) => a.id.endsWith(".desk")) ?? v.agents[0]).id;
+      d.invoice = { id: "in_simulated", number: "SIM-0001", status: "open", amount, live: false, vendor: v.name, dueDays: o.paymentDays, sentAt: Date.now(), simulated: true };
+      this.ev(v.name, "money", `Invoice SIM-0001 for $${fmt(amount)} sent to ${BUYER.name} (simulated: add STRIPE_SECRET_KEY for a real Stripe invoice).`, deskId, "acme.finance", "invoice");
+      await this.save();
+      await new Promise((r) => setTimeout(r, 4000));
+      d.invoice.status = "paid";
+      d.invoice.paidAt = Date.now();
+      this.ev(BUYER.name, "money", `Acme's finance agent paid invoice SIM-0001 (simulated).`, "acme.finance", "stripe", "payment");
+      this.ev(v.name, "money", `Payment received. Receivables applied the cash.`, "stripe", deskId, "payment");
+      await this.save();
       return;
     }
     const stripe = async (path: string, params: Record<string, string>) => {
@@ -455,11 +470,16 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       await stripe("invoiceitems", { customer: cust.id, amount: String(amount * 100), currency: "usd", description: `${v.name} analytics, ${o.seats} seats, year 1 (${payNow ? "2/10 early-payment discount applied" : "standard"})` });
       const inv = await stripe("invoices", { customer: cust.id, collection_method: "send_invoice", days_until_due: String(o.paymentDays), pending_invoice_items_behavior: "include", "metadata[po]": d.po!, description: `PO ${d.po}` });
       const fin = await stripe(`invoices/${inv.id}/finalize`, {});
-      this.ev(v.name, "money", `Stripe invoice ${fin.number ?? fin.id} issued for $${fmt(amount)} referencing ${d.po}.`, v.agents.find((a) => a.id.endsWith(".desk"))?.id);
+      const deskId = (v.agents.find((a) => a.id.endsWith(".desk")) ?? v.agents[0]).id;
+      d.invoice = { id: fin.id, number: fin.number ?? fin.id, status: fin.status, amount, url: fin.hosted_invoice_url, live: !key.startsWith("sk_test"), vendor: v.name, dueDays: o.paymentDays, sentAt: Date.now() };
+      this.ev(v.name, "money", `Stripe invoice ${fin.number ?? fin.id} sent to ${BUYER.name}: $${fmt(amount)}, due net ${o.paymentDays}, referencing ${d.po}.`, deskId, "acme.finance", "invoice");
+      await this.save();
+      await new Promise((r) => setTimeout(r, 4000));
       await stripe(`payment_methods/pm_card_visa/attach`, { customer: cust.id }).catch(() => null);
       const paid = await stripe(`invoices/${inv.id}/pay`, { payment_method: "pm_card_visa" }).catch(async () => stripe(`invoices/${inv.id}/pay`, { paid_out_of_band: "true" }));
-      d.invoice = { id: paid.id, status: paid.status, amount, url: paid.hosted_invoice_url, live: !key.startsWith("sk_test") };
-      this.ev(BUYER.name, "money", `Acme paid invoice ${paid.number ?? paid.id}: status ${paid.status}. ${v.name}'s receivables applied the cash.`, "acme.finance");
+      d.invoice = { ...d.invoice!, status: paid.status, url: paid.hosted_invoice_url ?? d.invoice?.url, paidAt: Date.now() };
+      this.ev(BUYER.name, "money", `Acme's finance agent paid Stripe invoice ${paid.number ?? paid.id}: status ${paid.status}.`, "acme.finance", "stripe", "payment");
+      this.ev(v.name, "money", `Stripe settled the payment. ${v.name}'s receivables applied the cash.`, "stripe", deskId, "payment");
     } catch (e: any) {
       d.invoice = { id: "error", status: String(e?.message ?? e), amount, live: false };
       this.ev("Deal Room", "error", `Stripe: ${e?.message ?? e}`);
@@ -470,4 +490,23 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
 
 function env(o: DealRoom): Env {
   return (o as any).env;
+}
+
+function profiles(budget: number): Record<string, Profile> {
+  const p: Record<string, Profile> = {
+    "acme.orchestrator": { job: "Runs Acme's side of the deal: sends the RFP and awards the winner.", can: ["Award any vendor that meets every red line"], ask: [`CFO sign-off when total contract value exceeds $${fmt(BUYER.cfoApprovalOverTcv)}`], prove: ["Award rationale citing security grade, legal flags and price"] },
+    "acme.procurement": { job: "Negotiates price and terms with every vendor in parallel.", can: [`Agree up to $${fmt(budget)}/yr (private budget)`, `Require net ${BUYER.minPaymentDays}+ payment terms`], ask: ["Anything over budget"], prove: ["Every counter and reply is logged"] },
+    "acme.security": { job: "Grades each vendor's security questionnaire.", can: ["Pass or fail vendors against Acme's must-haves"], ask: ["Any exception to a must-have"], prove: ["Vendor answers must cite their trust pack"] },
+    "acme.legal": { job: "Reviews contract fine print against Acme's red lines.", can: ["Eliminate a vendor that breaks a red line"], ask: ["Any red-line waiver"], prove: ["Quotes the exact contract section"] },
+    "acme.finance": { job: "Approvals, fraud checks, purchase order, and paying the invoice.", can: ["Pay invoices that match the PO and order form", "Take early-payment discounts"], ask: [`Deals over $${fmt(BUYER.cfoApprovalOverTcv)} total go to the human CFO`], prove: ["Three-way match: PO = order form = invoice", "Bank details match the verified account"] },
+  };
+  for (const v of VENDORS) {
+    for (const a of v.agents) {
+      if (a.platform === "Brainbase") p[a.id] = { job: `Writes ${v.name}'s proposals and countersigns the final deal.`, can: [`Quote up to list price $${fmt(v.listPrice)}/yr`], ask: [], prove: ["Opening offer passes the charter check"] };
+      else if (a.id.endsWith(".desk")) p[a.id] = { job: `${v.name}'s deal desk: negotiates, invoices through Stripe, provisions the workspace.`, can: [`Discount down to $${fmt(v.floor)}/yr (private floor)`, `Payment terms up to net ${v.maxPaymentDays}`], ask: ["Anything below the floor is blocked by the charter"], prove: ["Invoice references the buyer's PO", "Workspace live before the deal closes"] };
+      else p[a.id] = { job: `${v.name}'s trust team${a.id.startsWith("quickdash") ? " and deal desk" : ""}: answers security questions${a.id.startsWith("quickdash") ? ", negotiates" : ""}.`, can: ["Answer only from the trust pack", ...(a.id.startsWith("quickdash") ? [`Discount down to $${fmt(v.floor)}/yr (private floor)`, `Payment terms up to net ${v.maxPaymentDays}`] : [])], ask: ["Anything the trust pack does not cover"], prove: ["Every answer cites a trust-pack source ID"] };
+    }
+  }
+  p["human.cfo"] = { job: "Acme's human CFO. Only sees exceptions.", can: ["Approve or deny from their phone"], ask: [], prove: [] };
+  return p;
 }

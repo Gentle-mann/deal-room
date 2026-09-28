@@ -5,166 +5,440 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Deal Room</title>
 <style>
-  :root { --bg:#0a0e1a; --panel:#111830; --line:#243056; --text:#e8ecf6; --muted:#8e9ac0; --accent:#7aa2ff;
-          --ok:#4fd98d; --warn:#ffcc55; --bad:#ff6b7a; --money:#57d3e0; --bb:#c49bff; --wai:#f5a35c; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
-  header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  h1 { font-size:20px; margin:0; letter-spacing:.3px; }
-  .sub { color:var(--muted); font-size:13px; }
-  .clock { margin-left:auto; text-align:right; }
-  .clock b { font-size:28px; font-variant-numeric: tabular-nums; }
-  .vs { color:var(--muted); font-size:12px; }
-  form { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px 20px; border-bottom:1px solid var(--line); }
-  input[type=number] { background:var(--panel); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 10px; width:130px; }
-  button { background:var(--accent); color:#0a0e1a; border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
-  .stages { display:flex; gap:6px; flex-wrap:wrap; padding:12px 20px; }
-  .chip { font-size:12px; padding:5px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
-  .chip.on { border-color:var(--accent); color:var(--text); background:#1a2550; }
-  .chip.done { color:var(--ok); border-color:#1f5a3c; }
-  main { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)) minmax(0,1.3fr); gap:14px; padding:0 20px 20px; }
-  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
-  .col { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; min-width:0; }
-  .col h2 { font-size:16px; margin:0 0 2px; }
-  .role { color:var(--muted); font-size:12px; margin-bottom:10px; }
-  .agent { border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-bottom:8px; }
-  .agent .top { display:flex; align-items:center; gap:8px; }
-  .dot { width:9px; height:9px; border-radius:50%; background:#3a4570; flex:none; }
-  .dot.working { background:var(--warn); box-shadow:0 0 10px var(--warn); animation: pulse 1s infinite; }
-  .dot.done { background:var(--ok); } .dot.fallback { background:var(--wai); } .dot.error { background:var(--bad); }
-  @keyframes pulse { 50% { opacity:.4; } }
-  .name { font-weight:600; font-size:13px; }
-  .badge { margin-left:auto; font-size:10.5px; padding:2px 7px; border-radius:6px; white-space:nowrap; }
-  .badge.bb { background:#2b1f47; color:var(--bb); } .badge.wai { background:#3a2615; color:var(--wai); }
-  .last { color:var(--muted); font-size:12px; margin-top:5px; overflow-wrap:anywhere; }
-  .track { font-size:12px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); overflow-wrap:anywhere; }
-  .elim { color:var(--bad); font-weight:600; }
-  .feed { max-height: 70vh; overflow:auto; font-size:12.5px; }
-  .ev { padding:6px 0; border-bottom:1px solid #1b2444; overflow-wrap:anywhere; }
-  .ev .who { color:var(--muted); font-size:11px; }
-  .k-stage { color:var(--accent); font-weight:700; } .k-block { color:var(--bad); } .k-flag { color:var(--warn); }
-  .k-escalate { color:var(--warn); font-weight:700; } .k-money { color:var(--money); } .k-win { color:var(--ok); font-weight:600; } .k-error { color:var(--bad); }
-  .approval { display:none; margin:0 20px 14px; padding:14px; border:2px solid var(--warn); border-radius:12px; background:#2a220b; }
-  .approval.show { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-  .result { display:none; margin:0 20px 14px; padding:14px; border:1px solid #1f5a3c; border-radius:12px; background:#0f2419; }
-  .result.show { display:block; } .result a { color:var(--ok); }
-  .legend { font-size:12px; color:var(--muted); display:flex; gap:14px; flex-wrap:wrap; }
+:root {
+  --bg:#070b16; --panel:#0f1629; --panel2:#131c35; --line:#223056; --text:#e9edf8; --muted:#8793b8;
+  --accent:#7aa2ff; --ok:#4fd98d; --warn:#ffcc55; --bad:#ff5d73; --money:#52d6e6;
+  --bb:#b98cff; --wai:#ffa057; --acme:#5b8cff; --beacon:#2fc4a5; --quick:#ff7aa8; --human:#ffd27a;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { display:grid; grid-template-rows:auto auto 1fr; }
+header { display:flex; align-items:center; gap:18px; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand b { font-size:19px; letter-spacing:.3px; }
+.brand span { color:var(--muted); font-size:12.5px; }
+.controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.controls label { color:var(--muted); font-size:12.5px; display:flex; align-items:center; gap:6px; }
+input[type=number] { background:var(--panel); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 9px; width:110px; }
+button { background:var(--accent); color:#06101f; border:0; border-radius:8px; padding:8px 14px; font-weight:700; cursor:pointer; font-size:13px; }
+button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+button.on { background:#1d2a55; color:var(--text); border:1px solid var(--accent); }
+.clock { margin-left:auto; text-align:right; line-height:1.1; }
+.clock b { font-size:30px; font-variant-numeric:tabular-nums; }
+.clock div { color:var(--muted); font-size:11.5px; }
+.stepper { display:flex; gap:4px; padding:8px 18px; border-bottom:1px solid var(--line); overflow-x:auto; }
+.step { font-size:11.5px; padding:4px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+.step.on { border-color:var(--accent); color:var(--text); background:#17224a; }
+.step.done { color:var(--ok); border-color:#1d4d37; }
+.stage-wrap { display:grid; grid-template-columns:minmax(0,1fr) 380px; min-height:0; }
+@media (max-width: 1000px) { .stage-wrap { grid-template-columns:1fr; } .side { max-height:60vh; } }
+.canvas { position:relative; min-height:0; overflow:hidden; }
+svg#net { width:100%; height:100%; display:block; min-height:420px; }
+.side { border-left:1px solid var(--line); display:flex; flex-direction:column; min-height:0; background:var(--panel); }
+.tabs { display:flex; border-bottom:1px solid var(--line); }
+.tabs button { flex:1; border-radius:0; background:transparent; color:var(--muted); border-bottom:2px solid transparent; padding:10px; }
+.tabs button.active { color:var(--text); border-bottom-color:var(--accent); }
+.pane { overflow:auto; padding:14px; flex:1; min-height:0; }
+.hidden { display:none !important; }
+.fhead { display:flex; gap:12px; align-items:center; margin-bottom:10px; }
+.fhead svg { width:58px; height:64px; flex:none; }
+.fhead h3 { margin:0; font-size:16px; } .fhead .sub { color:var(--muted); font-size:12px; }
+.badge { display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:6px; margin-top:4px; }
+.badge.bb { background:#271b45; color:var(--bb); } .badge.wai { background:#3a2412; color:var(--wai); } .badge.hu { background:#3a2f12; color:var(--human); }
+.job { font-size:13px; color:#c9d1ea; margin:6px 0 12px; }
+.charter { display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:12px; }
+.cbox { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--panel2); }
+.cbox h4 { margin:0 0 4px; font-size:11px; letter-spacing:.6px; text-transform:uppercase; }
+.cbox.can h4 { color:var(--ok); } .cbox.ask h4 { color:var(--warn); } .cbox.prove h4 { color:var(--money); }
+.cbox ul { margin:0; padding-left:16px; font-size:12.5px; color:#c9d1ea; }
+.section-title { font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin:14px 0 6px; }
+.work { font-size:12.5px; border-bottom:1px solid #1b2546; padding:7px 0; overflow-wrap:anywhere; }
+.work .meta { color:var(--muted); font-size:11px; }
+.chart { width:100%; height:150px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; }
+.ev { padding:7px 0; border-bottom:1px solid #1b2546; font-size:12.5px; overflow-wrap:anywhere; }
+.ev .who { color:var(--muted); font-size:11px; }
+.k-stage { color:var(--accent); font-weight:700; } .k-block { color:var(--bad); } .k-flag { color:var(--warn); }
+.k-escalate { color:var(--warn); font-weight:700; } .k-money { color:var(--money); } .k-win { color:var(--ok); font-weight:600; } .k-error { color:var(--bad); }
+.office { fill:#0d1428; stroke:var(--line); stroke-width:1.5; }
+.office-title { fill:#c9d1ea; font-size:15px; font-weight:700; }
+.office-sub { fill:var(--muted); font-size:11px; }
+.edge { fill:none; stroke-linecap:round; opacity:.35; }
+.bot { cursor:pointer; }
+.bot .glow { fill:transparent; }
+.bot.working .glow { fill:rgba(255,204,85,.25); }
+.bot.done .glow { fill:rgba(79,217,141,.12); }
+.bot.error .glow, .bot.fallback .glow { fill:rgba(255,160,87,.2); }
+.bot.focused .ring { stroke:var(--accent); stroke-width:2.5; stroke-dasharray:4 3; }
+.bot .ring { fill:none; stroke:transparent; }
+.bot.working .arm { animation: type .35s infinite alternate; }
+.bot.working .screen { fill:#9fe8ff; }
+.bot.working .ant { animation: blink .6s infinite; }
+.bot.blocked .body { animation: shake .4s 2; }
+@keyframes type { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes blink { 50% { opacity:.25; } }
+@keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.label { fill:#dfe5f5; font-size:11.5px; font-weight:600; text-anchor:middle; }
+.model { fill:var(--muted); font-size:9.5px; text-anchor:middle; }
+.bubble rect { fill:#ffffff; opacity:.95; } .bubble text { fill:#0a0e1a; font-size:10.5px; font-weight:600; }
+.bubble.bad rect { fill:#ffd6dc; } .bubble.money rect { fill:#d4f7fb; } .bubble.win rect { fill:#d7f8e5; }
+.node-title { fill:#e9edf8; font-size:12px; font-weight:700; text-anchor:middle; }
+.node-sub { fill:var(--muted); font-size:10px; text-anchor:middle; }
+.packet text { font-size:18px; text-anchor:middle; dominant-baseline:central; }
+.overlay { position:absolute; left:50%; transform:translateX(-50%); z-index:5; }
+.invoice { bottom:18px; width:min(520px, 92%); background:#fbfbfe; color:#1a1f36; border-radius:14px; padding:16px 18px; box-shadow:0 18px 60px rgba(0,0,0,.55); font-size:13px; }
+.invoice .row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #e6e9f2; gap:10px; }
+.invoice .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.invoice .stripe { color:#635bff; font-weight:800; font-size:18px; letter-spacing:-.3px; }
+.invoice .amt { font-size:26px; font-weight:800; margin:4px 0 8px; }
+.invoice .tag { font-size:10.5px; background:#fff3cd; color:#7a5a00; padding:2px 7px; border-radius:6px; font-weight:700; }
+.invoice .stamp { position:absolute; right:22px; top:52px; border:4px solid #1f9d55; color:#1f9d55; font-weight:900; font-size:30px; padding:2px 12px; border-radius:8px; transform:rotate(-12deg); opacity:0; transition:opacity .4s, transform .4s; }
+.invoice.paid .stamp { opacity:1; transform:rotate(-12deg) scale(1.05); }
+.invoice a { color:#635bff; font-weight:700; }
+.approval { top:18px; width:min(560px, 92%); background:#2a220b; border:2px solid var(--warn); border-radius:14px; padding:14px 16px; box-shadow:0 18px 60px rgba(0,0,0,.5); }
+.approval .q { font-size:15px; margin:6px 0 10px; }
+.closed { top:18px; width:min(640px, 92%); background:#0e2419; border:1px solid #2a7a51; border-radius:14px; padding:14px 16px; box-shadow:0 18px 60px rgba(0,0,0,.5); }
+.closed b.big { font-size:22px; color:var(--ok); }
+.closed a { color:var(--ok); font-weight:700; margin-right:14px; }
+.legend { position:absolute; left:14px; bottom:12px; display:flex; gap:12px; font-size:11.5px; color:var(--muted); flex-wrap:wrap; }
+.legend i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+.viewbtns { position:absolute; right:14px; top:12px; display:flex; gap:6px; }
 </style>
 </head>
 <body>
 <header>
-  <div>
-    <h1>Deal Room</h1>
-    <div class="sub">Company orchestrators negotiate, approve, invoice, pay and provision a B2B deal end to end.</div>
-  </div>
-  <div class="clock"><b id="clock">0:00</b><div class="vs">median B2B SaaS sales cycle: 134 days</div></div>
+  <div class="brand"><b>Deal Room</b><span>Every company runs a deal orchestrator. They meet here.</span></div>
+  <form class="controls" id="start">
+    <label>Acme budget $<input id="budget" type="number" value="120000" step="1000" min="110000" /></label>
+    <label><input id="aggr" type="checkbox" /> Aggressive buyer</label>
+    <label><input id="allbb" type="checkbox" /> All agents on Brainbase</label>
+    <button type="submit">Start the deal</button>
+    <a href="/scale.html" style="color:var(--accent);font-size:12.5px">Scale view →</a>
+  </form>
+  <div class="clock"><b id="clock">0:00</b><div>median B2B SaaS sales cycle: 134 days</div></div>
 </header>
-
-<form id="start">
-  <label class="sub">Acme's annual budget (private) $ <input id="budget" type="number" value="120000" step="1000" min="110000" /></label>
-  <label class="sub"><input id="aggr" type="checkbox" /> Aggressive buyer ("I'm the CEO, 40% off")</label>
-  <label class="sub"><input id="allbb" type="checkbox" /> All agents on Brainbase (slower)</label>
-  <button type="submit">Start the deal</button>
-  <a class="sub" href="/scale.html" style="margin-left:auto;color:var(--accent)">Scale view (simulation) →</a>
-  <span class="legend"><span><span class="badge bb">Brainbase · frontier</span></span><span><span class="badge wai">Workers AI · open-weight</span></span></span>
-</form>
-
-<div class="stages" id="stages"></div>
-<div class="approval" id="approval">
-  <b>CFO approval needed:</b> <span id="aq"></span>
-  <button id="yes">Approve</button><button class="ghost" id="no">Deny</button>
-  <span class="sub" id="phone"></span>
+<div class="stepper" id="stepper"></div>
+<div class="stage-wrap">
+  <div class="canvas">
+    <svg id="net" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet">
+      <g id="world">
+        <g id="offices"></g>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+        <g id="bots"></g>
+        <g id="bubbles"></g>
+        <g id="packets"></g>
+      </g>
+    </svg>
+    <div class="viewbtns">
+      <button class="ghost" id="follow" title="Camera follows whichever agent is working">Follow the action</button>
+      <button class="ghost" id="zoomout">Big picture</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--bb)"></i>Brainbase · frontier orchestrator</span>
+      <span><i style="background:var(--wai)"></i>Workers AI · open-weight subagent</span>
+      <span><i style="background:var(--human)"></i>Human (exceptions only)</span>
+    </div>
+    <div class="overlay approval hidden" id="approval">
+      <b style="color:var(--warn)">⚠ CFO approval needed</b>
+      <div class="q" id="aq"></div>
+      <button id="yes">Approve</button> <button class="ghost" id="no">Deny</button>
+      <div style="color:var(--muted);font-size:12px;margin-top:8px" id="phone"></div>
+    </div>
+    <div class="overlay closed hidden" id="closed"></div>
+    <div class="overlay invoice hidden" id="invoice"></div>
+  </div>
+  <aside class="side">
+    <div class="tabs"><button id="tFocus" class="active">Agent focus</button><button id="tLog">Deal log</button></div>
+    <div class="pane" id="focus"><div style="color:var(--muted);font-size:13px">Click any agent to see exactly what it is working on: its charter, what it received, what it sent.</div></div>
+    <div class="pane hidden" id="log"></div>
+  </aside>
 </div>
-<div class="result" id="result"></div>
-
-<main>
-  <section class="col" id="c-acme"></section>
-  <section class="col" id="c-beacon"></section>
-  <section class="col" id="c-quickdash"></section>
-  <section class="col"><h2>Deal log</h2><div class="role">Every message, block and payment, live</div><div class="feed" id="feed"></div></section>
-</main>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
-let dealId = new URLSearchParams(location.search).get("deal");
-let state = null, timer = null;
+const NS = "http://www.w3.org/2000/svg";
 
+const OFFICES = [
+  { key:"acme", name:"Acme Corp", sub:"Buyer", x:20, y:36, w:360, h:590, color:"var(--acme)" },
+  { key:"beacon", name:"Beacon Analytics", sub:"Vendor · premium", x:620, y:36, w:360, h:280, color:"var(--beacon)" },
+  { key:"quickdash", name:"Quickdash", sub:"Vendor · low price", x:620, y:346, w:360, h:280, color:"var(--quick)" },
+];
+const POS = {
+  "acme.orchestrator":[200,125], "acme.procurement":[108,262], "acme.security":[292,262],
+  "acme.legal":[108,398], "acme.finance":[292,398], "human.cfo":[200,540],
+  "beacon.orchestrator":[800,120], "beacon.trust":[708,248], "beacon.desk":[892,248],
+  "quickdash.orchestrator":[708,470], "quickdash.trust":[892,470],
+  "hub":[500,300], "ext.email":[500,86], "stripe":[500,452], "cloudflare":[500,572],
+};
+const COLOR = { acme:"#5b8cff", beacon:"#2fc4a5", quickdash:"#ff7aa8" };
+const ART = { rfp:"📨", proposal:"📄", questionnaire:"🔒", grade:"🅰️", counter:"💬", offer:"💬", redline:"✍️", award:"🏆", debrief:"✉️",
+  escalate:"⚠️", approve:"✅", deny:"⛔", signature:"✒️", fraud:"☠️", po:"📋", invoice:"🧾", payment:"💳", provision:"🚀", eliminate:"❌", block:"⛔" };
+const EDGE_COLOR = { invoice:"#52d6e6", payment:"#52d6e6", provision:"#ffa057", fraud:"#ff5d73", eliminate:"#ff5d73", deny:"#ff5d73",
+  escalate:"#ffcc55", approve:"#4fd98d", award:"#4fd98d", signature:"#4fd98d" };
+const companyOf = (id) => id.split(".")[0];
+
+let dealId = new URLSearchParams(location.search).get("deal");
+let state = null, pollTimer = null, seen = 0, focusId = null, follow = false, lastFollow = 0;
+const edgeCount = {};
+let view = { x:0, y:0, w:1000, h:640 }, target = { ...view };
+
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function drawStatic() {
+  const g = $("#offices"); g.innerHTML = "";
+  for (const o of OFFICES) {
+    el("rect", { class:"office", x:o.x, y:o.y, width:o.w, height:o.h, rx:18 }, g);
+    el("rect", { x:o.x, y:o.y, width:o.w, height:6, rx:3, fill:o.color }, g);
+    const t = el("text", { class:"office-title", x:o.x+16, y:o.y+28 }, g); t.textContent = o.name;
+    const s = el("text", { class:"office-sub", x:o.x+16, y:o.y+44 }, g); s.textContent = o.sub;
+  }
+  const n = $("#nodes"); n.innerHTML = "";
+  const [hx, hy] = POS.hub;
+  el("ellipse", { cx:hx, cy:hy, rx:74, ry:46, fill:"#141e3d", stroke:"#3a4d8c", "stroke-width":2 }, n);
+  el("ellipse", { cx:hx, cy:hy+4, rx:50, ry:22, fill:"#1c2a55", stroke:"#4a61a8" }, n);
+  let t = el("text", { class:"node-title", x:hx, y:hy+4 }, n); t.textContent = "🤝 Deal Room";
+  t = el("text", { class:"node-sub", x:hx, y:hy+60 }, n); t.textContent = "neutral ground · charters stay private";
+  const [sx, sy] = POS.stripe;
+  el("rect", { x:sx-52, y:sy-24, width:104, height:48, rx:12, fill:"#635bff" }, n);
+  t = el("text", { x:sx, y:sy+6, "text-anchor":"middle", fill:"#fff", "font-size":20, "font-weight":800 }, n); t.textContent = "stripe";
+  t = el("text", { class:"node-sub", x:sx, y:sy+40 }, n); t.textContent = "invoices · payments (sandbox)";
+  const [cx, cy] = POS.cloudflare;
+  el("rect", { x:cx-60, y:cy-22, width:120, height:44, rx:12, fill:"#2a1a0c", stroke:"#f48120" }, n);
+  t = el("text", { x:cx, y:cy+5, "text-anchor":"middle", fill:"#f6a45a", "font-size":13, "font-weight":800 }, n); t.textContent = "☁ Cloudflare";
+  t = el("text", { class:"node-sub", x:cx, y:cy+36 }, n); t.textContent = "provisioning · hosting";
+  const [ex, ey] = POS["ext.email"];
+  el("rect", { x:ex-50, y:ey-18, width:100, height:36, rx:10, fill:"#2a0f16", stroke:"#6b2332", "stroke-dasharray":"4 3" }, n);
+  t = el("text", { x:ex, y:ey+4, "text-anchor":"middle", fill:"#ff8a9a", "font-size":11.5, "font-weight":700 }, n); t.textContent = "✉ unknown sender";
+}
+
+function botSVG(id, a, opts = {}) {
+  const human = id === "human.cfo";
+  const shirt = human ? "#c9a24a" : COLOR[companyOf(id)] || "#8899cc";
+  const ant = a?.platform === "Brainbase" ? "#b98cff" : "#ffa057";
+  return `
+    <ellipse class="glow" cx="0" cy="30" rx="30" ry="8"/>
+    <circle class="ring" cx="0" cy="-4" r="36"/>
+    <rect x="-28" y="18" width="56" height="8" rx="2" fill="#26315a"/>
+    <rect class="screen" x="-10" y="6" width="20" height="12" rx="1.5" fill="#3b4a7a"/>
+    ${human ? `<rect x="-11" y="-33" width="22" height="7" rx="3" fill="#3a2a1a"/>` : `<line x1="0" y1="-31" x2="0" y2="-39" stroke="${ant}" stroke-width="2"/><circle class="ant" cx="0" cy="-41" r="3.5" fill="${ant}"/>`}
+    <rect x="-10" y="-31" width="20" height="17" rx="4" fill="${human ? "#f1c9a5" : "#dfe5f5"}"/>
+    <rect x="-6" y="-25" width="4" height="4" fill="#0a0e1a"/><rect x="2" y="-25" width="4" height="4" fill="#0a0e1a"/>
+    <g class="body"><rect x="-12" y="-13" width="24" height="19" rx="4" fill="${shirt}"/>
+    ${human ? `<path d="M0 -12 L3 -5 L0 2 L-3 -5 Z" fill="#b8322f"/>` : `<rect x="-5" y="-8" width="10" height="3" rx="1" fill="rgba(255,255,255,.35)"/>`}</g>
+    <rect class="arm" x="-18" y="-10" width="5" height="15" rx="2" fill="${shirt}"/>
+    <rect class="arm" x="13" y="-10" width="5" height="15" rx="2" fill="${shirt}"/>
+    ${opts.noLabel ? "" : `<text class="label" y="44">${esc(opts.label)}</text><text class="model" y="56">${esc(opts.model)}</text>`}`;
+}
+function drawBots() {
+  const g = $("#bots"); g.innerHTML = "";
+  if (!state) return;
+  const recentBlock = new Set(state.events.filter((e) => e.kind === "block" && Date.now() - e.t < 2500).map((e) => e.agent));
+  const ids = [...Object.keys(state.agents), "human.cfo"];
+  for (const id of ids) {
+    const a = state.agents[id];
+    const [x, y] = POS[id] || [500, 300];
+    const status = id === "human.cfo" ? (state.approval?.status === "pending" ? "working" : state.approval ? "done" : "idle") : a.status;
+    const grp = el("g", { class:`bot ${status} ${focusId === id ? "focused" : ""} ${recentBlock.has(id) ? "blocked" : ""}`, transform:`translate(${x},${y})`, "data-id":id }, g);
+    grp.innerHTML = botSVG(id, a, { label: id === "human.cfo" ? "CFO (human)" : a.role, model: id === "human.cfo" ? "approves exceptions" : a.label });
+    grp.addEventListener("click", () => setFocus(id, true));
+  }
+}
+const crossCompany = (a, b) => { const ca = companyOf(a), cb = companyOf(b); const inside = ["acme","beacon","quickdash"]; return inside.includes(ca) && inside.includes(cb) && ca !== cb; };
+function drawEdges() {
+  const g = $("#edges"); g.innerHTML = "";
+  for (const k in edgeCount) {
+    const [a, b, color] = k.split("|");
+    const pa = POS[a], pb = POS[b]; if (!pa || !pb || a === b) continue;
+    const via = crossCompany(a, b) ? POS.hub : null;
+    const d = via ? `M${pa[0]},${pa[1]} Q${via[0]},${via[1]} ${pb[0]},${pb[1]}` : `M${pa[0]},${pa[1]} L${pb[0]},${pb[1]}`;
+    el("path", { class:"edge", d, stroke:color, "stroke-width": Math.min(1.5 + edgeCount[k] * 0.8, 6) }, g);
+  }
+}
+function drawBubbles() {
+  const g = $("#bubbles"); g.innerHTML = "";
+  if (!state) return;
+  const latest = {};
+  for (const e of state.events) if (e.agent && Date.now() - e.t < 5000) latest[e.agent] = e;
+  for (const id in latest) {
+    const e = latest[id]; const p = POS[id]; if (!p) continue;
+    const txt = (ART[e.art] ? ART[e.art] + " " : "") + e.text.replace(/\s+/g, " ").slice(0, 44) + (e.text.length > 44 ? "…" : "");
+    const w = Math.min(300, 16 + txt.length * 5.6);
+    const cls = e.kind === "block" || e.kind === "flag" ? "bad" : e.kind === "money" ? "money" : e.kind === "win" ? "win" : "";
+    const b = el("g", { class:`bubble ${cls}`, transform:`translate(${Math.max(8, Math.min(992 - w, p[0] - w / 2))},${p[1] - 80})` }, g);
+    el("rect", { width:w, height:22, rx:8 }, b);
+    const t = el("text", { x:8, y:15 }, b); t.textContent = txt;
+  }
+}
+function launchPacket(e) {
+  const from = POS[e.agent], to = POS[e.to]; if (!from || !to || e.agent === e.to) return;
+  const g = el("g", { class:"packet" }, $("#packets"));
+  const t = el("text", {}, g); t.textContent = ART[e.art] || "•";
+  const via = crossCompany(e.agent, e.to) ? POS.hub : null;
+  const dur = via ? 1600 : 1100, t0 = performance.now();
+  const bounce = e.art === "fraud";
+  function frame(now) {
+    let k = Math.min(1, (now - t0) / dur);
+    if (bounce && k > 0.7) k = 0.7 - (k - 0.7) * 2;
+    let x, y;
+    if (via) { const u = k; x = (1-u)*(1-u)*from[0] + 2*(1-u)*u*via[0] + u*u*to[0]; y = (1-u)*(1-u)*from[1] + 2*(1-u)*u*via[1] + u*u*to[1]; }
+    else { x = from[0] + (to[0]-from[0])*k; y = from[1] + (to[1]-from[1])*k; }
+    g.setAttribute("transform", `translate(${x},${y}) scale(${1 + 0.25*Math.sin(Math.PI*Math.min(1,(now-t0)/dur))})`);
+    if (now - t0 < dur) requestAnimationFrame(frame); else g.remove();
+  }
+  requestAnimationFrame(frame);
+  const key = `${e.agent}|${e.to}|${EDGE_COLOR[e.art] || "#7aa2ff"}`;
+  edgeCount[key] = (edgeCount[key] || 0) + 1;
+}
+
+function focusBox(id) {
+  const p = POS[id]; if (!p) return { x:0, y:0, w:1000, h:640 };
+  return { x: Math.max(0, Math.min(1000 - 520, p[0] - 260)), y: Math.max(0, Math.min(640 - 333, p[1] - 166)), w:520, h:333 };
+}
+function camera() {
+  view.x += (target.x - view.x) * 0.12; view.y += (target.y - view.y) * 0.12;
+  view.w += (target.w - view.w) * 0.12; view.h += (target.h - view.h) * 0.12;
+  $("#net").setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+  requestAnimationFrame(camera);
+}
+requestAnimationFrame(camera);
+$("#zoomout").onclick = () => { follow = false; $("#follow").classList.remove("on"); target = { x:0, y:0, w:1000, h:640 }; };
+$("#follow").onclick = () => { follow = !follow; $("#follow").classList.toggle("on", follow); if (!follow) target = { x:0, y:0, w:1000, h:640 }; };
+
+function setFocus(id, zoom) {
+  focusId = id; showTab("focus");
+  if (zoom) target = focusBox(id);
+  renderFocus(); drawBots();
+}
+function renderFocus() {
+  if (!state || !focusId) return;
+  const id = focusId, a = state.agents[id], prof = state.profiles?.[id] || { job:"", can:[], ask:[], prove:[] };
+  const human = id === "human.cfo";
+  const comp = human ? "Acme Corp" : a.company;
+  const mine = state.events.filter((e) => e.agent === id || e.to === id).slice().reverse();
+  const track = Object.values(state.tracks).find((t) => id.startsWith(t.key) && (id.endsWith(".desk") || (id.startsWith("quickdash") && id.endsWith(".trust"))));
+  const buyerNeg = id === "acme.procurement";
+  const list = (xs) => xs.length ? `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div style="color:var(--muted);font-size:12px">none</div>`;
+  $("#focus").innerHTML = `
+    <div class="fhead"><svg viewBox="-34 -48 68 80">${botSVG(id, a, { noLabel:true })}</svg>
+      <div><h3>${esc(human ? "CFO (human)" : a.role)}</h3><div class="sub">${esc(comp)}</div>
+      <span class="badge ${human ? "hu" : a.platform === "Brainbase" ? "bb" : "wai"}">${esc(human ? "Human in the loop" : a.label)}</span>
+      ${human ? "" : `<span class="badge" style="background:#1b2546;color:var(--muted)">${a.calls} model calls · ${esc(a.status)}</span>`}</div></div>
+    <div class="job">${esc(prof.job)}</div>
+    <div class="charter">
+      <div class="cbox can"><h4>Can do alone</h4>${list(prof.can)}</div>
+      <div class="cbox ask"><h4>Must ask</h4>${list(prof.ask)}</div>
+      <div class="cbox prove"><h4>Must prove</h4>${list(prof.prove)}</div>
+    </div>
+    ${track || buyerNeg ? `<div class="section-title">Negotiation, price per year</div>${priceChart(track ? [track] : Object.values(state.tracks))}` : ""}
+    ${!human && a.last ? `<div class="section-title">Latest output</div><div class="work">${esc(a.last)}</div>` : ""}
+    <div class="section-title">Inbox and outbox (${mine.length})</div>
+    ${mine.map((e) => `<div class="work"><div class="meta">${new Date(e.t).toLocaleTimeString()} · ${e.agent === id ? "sent" : "received"} ${ART[e.art] || ""} ${e.to && e.agent === id ? "→ " + esc(nameOf(e.to)) : e.agent !== id ? "← " + esc(nameOf(e.agent)) : ""}</div><div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("") || `<div style="color:var(--muted);font-size:12px">Nothing yet.</div>`}
+  `;
+}
+function nameOf(id) {
+  if (!id) return "";
+  if (state.agents[id]) return `${state.agents[id].company} ${state.agents[id].role}`;
+  return { "human.cfo":"CFO (human)", stripe:"Stripe", cloudflare:"Cloudflare", "ext.email":"unknown sender", hub:"Deal Room" }[id] || id;
+}
+function priceChart(tracks) {
+  const pts = tracks.flatMap((t) => (t.history || []).map((h) => ({ ...h, key:t.key })));
+  if (!pts.length) return `<div style="color:var(--muted);font-size:12px">No offers yet.</div>`;
+  const W = 340, H = 150, pad = 26;
+  const prices = pts.flatMap((p) => [p.price, p.asked || p.price]).concat([state.limits.budget]);
+  const lo = Math.min(...prices) * 0.95, hi = Math.max(...prices) * 1.03;
+  const X = (i, n) => pad + (i * (W - pad * 1.5)) / Math.max(1, n - 1), Y = (v) => H - pad + 6 - ((v - lo) / (hi - lo)) * (H - pad * 1.3);
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}">`;
+  svg += `<line x1="${pad}" x2="${W - 6}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="#5b8cff" stroke-dasharray="4 3"/><text x="${W - 8}" y="${Y(state.limits.budget) - 4}" fill="#5b8cff" font-size="9.5" text-anchor="end">Acme budget (private)</text>`;
+  for (const t of tracks) {
+    const hs = t.history || [], color = COLOR[t.key];
+    const vend = hs.map((h, i) => ({ ...h, i })).filter((h) => h.by === "vendor");
+    const buy = hs.map((h, i) => ({ ...h, i })).filter((h) => h.by === "buyer");
+    const n = hs.length;
+    if (vend.length > 1) svg += `<polyline fill="none" stroke="${color}" stroke-width="2" points="${vend.map((h) => `${X(h.i, n)},${Y(h.price)}`).join(" ")}"/>`;
+    if (buy.length > 1) svg += `<polyline fill="none" stroke="#5b8cff" stroke-width="1.5" stroke-dasharray="3 3" points="${buy.map((h) => `${X(h.i, n)},${Y(h.price)}`).join(" ")}"/>`;
+    for (const h of vend) {
+      svg += `<circle cx="${X(h.i, n)}" cy="${Y(h.price)}" r="4" fill="${color}"/>`;
+      if (h.blocked && h.asked && h.asked !== h.price) svg += `<text x="${X(h.i, n)}" y="${Y(h.asked)}" fill="#ff5d73" font-size="12" text-anchor="middle" dominant-baseline="central">✕</text>`;
+    }
+    for (const h of buy) svg += `<rect x="${X(h.i, n) - 3}" y="${Y(h.price) - 3}" width="6" height="6" fill="#5b8cff"/>`;
+    const last = vend.at(-1); if (last) svg += `<text x="${Math.min(W - 40, X(last.i, n) + 6)}" y="${Y(last.price) - 6}" fill="${color}" font-size="10" font-weight="700">$${fmt(last.price / 1000)}K</text>`;
+  }
+  return svg + `</svg><div style="color:var(--muted);font-size:11px;margin-top:4px">● vendor offers · ■ Acme counters · <span style="color:#ff5d73">✕</span> blocked by the vendor's own charter</div>`;
+}
+
+function renderOverlays() {
+  const ap = state.approval;
+  $("#approval").classList.toggle("hidden", !(ap && ap.status === "pending"));
+  if (ap) { $("#aq").textContent = ap.question; $("#phone").textContent = `Or approve from a phone: ${location.origin}/approve.html?deal=${state.id}`; }
+  const inv = state.invoice;
+  const box = $("#invoice");
+  const showInv = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 14000);
+  box.classList.toggle("hidden", !showInv);
+  if (inv && showInv) {
+    box.classList.toggle("paid", !!inv.paidAt);
+    box.innerHTML = `<div class="top"><span class="stripe">stripe</span><span class="tag">${inv.simulated ? "SIMULATED" : inv.live ? "LIVE" : "SANDBOX"}</span></div>
+      <div style="color:#6b7394">Invoice ${esc(inv.number || inv.id)} · from ${esc(inv.vendor)} to Acme Corp</div>
+      <div class="amt">$${fmt(inv.amount)}</div>
+      <div class="row"><span>Purchase order</span><b>${esc(state.po)}</b></div>
+      <div class="row"><span>Terms</span><b>net ${inv.dueDays} · 2% early-payment discount applied</b></div>
+      <div class="row"><span>Status</span><b style="color:${inv.paidAt ? "#1f9d55" : "#b7791f"}">${inv.paidAt ? "Paid by Acme's finance agent" : "Sent · awaiting payment"}</b></div>
+      ${inv.url ? `<div style="margin-top:8px"><a href="${esc(inv.url)}" target="_blank">View the invoice in Stripe →</a></div>` : ""}
+      <div class="stamp">PAID</div>`;
+  }
+  const closed = $("#closed");
+  if (state.done) {
+    closed.classList.remove("hidden");
+    const secs = Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000);
+    closed.innerHTML = state.winner
+      ? `<b class="big">Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s</b> <span style="color:var(--muted)">vs. a 134-day median</span>
+         <div style="margin:6px 0 8px">${esc(state.winner.name)} · $${fmt(state.winner.offer.price)}/yr · ${state.winner.offer.termMonths} months · total $${fmt(state.winner.tcv)} · PO ${esc(state.po)}</div>
+         ${state.tenant ? `<a href="${esc(state.tenant.path)}" target="_blank">Open Acme's live workspace →</a>` : ""}${inv?.url ? `<a href="${esc(inv.url)}" target="_blank">Stripe invoice →</a>` : ""}`
+      : `<b class="big" style="color:var(--warn)">No deal</b><div style="margin-top:6px">No vendor fit inside Acme's charter, so the agents walked away.</div>`;
+  } else closed.classList.add("hidden");
+}
+$("#yes").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ approve:true }) });
+$("#no").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ approve:false }) });
+
+function renderLog() {
+  $("#log").innerHTML = state.events.slice().reverse().map((e) =>
+    `<div class="ev"><div class="who">${new Date(e.t).toLocaleTimeString()} · ${esc(e.company)}${e.agent && state.agents[e.agent] ? " · " + esc(state.agents[e.agent].role) : ""} ${ART[e.art] || ""}</div><div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("");
+}
+function renderStepper() {
+  $("#stepper").innerHTML = state.stages.map((s, i) => `<span class="step ${i < state.stage || state.done ? "done" : i === state.stage ? "on" : ""}">${i + 1}. ${esc(s)}</span>`).join("");
+}
+function showTab(t) { $("#tFocus").classList.toggle("active", t === "focus"); $("#tLog").classList.toggle("active", t === "log"); $("#focus").classList.toggle("hidden", t !== "focus"); $("#log").classList.toggle("hidden", t !== "log"); }
+$("#tFocus").onclick = () => showTab("focus"); $("#tLog").onclick = () => showTab("log");
+setInterval(() => {
+  if (!state) return;
+  const s = Math.max(0, Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000));
+  $("#clock").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  drawBubbles();
+}, 250);
+
+async function load() {
+  const r = await fetch(`/api/deals/${dealId}`); const s = await r.json(); if (!s) return;
+  state = s;
+  const fresh = state.events.slice(seen); seen = state.events.length;
+  fresh.forEach((e, i) => setTimeout(() => launchPacket(e), i * 180));
+  if (follow && fresh.length && Date.now() - lastFollow > 2500) {
+    const e = [...fresh].reverse().find((x) => x.agent && POS[x.agent]);
+    if (e) { lastFollow = Date.now(); focusId = e.agent; target = focusBox(e.agent); }
+  }
+  renderStepper(); drawBots(); drawEdges(); renderFocus(); renderLog(); renderOverlays();
+  if (state.done) { clearInterval(pollTimer); setTimeout(() => { target = { x:0, y:0, w:1000, h:640 }; }, 1500); }
+}
+function startPolling() { clearInterval(pollTimer); seen = 0; for (const k in edgeCount) delete edgeCount[k]; load(); pollTimer = setInterval(load, 1000); }
 $("#start").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const r = await fetch("/api/deals", { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ budget: Number($("#budget").value), aggressive: $("#aggr").checked, allBrainbase: $("#allbb").checked }) });
-  const { id } = await r.json();
-  dealId = id; history.replaceState(null, "", "?deal=" + id);
-  poll();
+  const r = await fetch("/api/deals", { method:"POST", headers:{ "content-type":"application/json" },
+    body: JSON.stringify({ budget:Number($("#budget").value), aggressive:$("#aggr").checked, allBrainbase:$("#allbb").checked }) });
+  dealId = (await r.json()).id; history.replaceState(null, "", "?deal=" + dealId);
+  focusId = null; $("#focus").innerHTML = `<div style="color:var(--muted);font-size:13px">Click any agent to see exactly what it is working on.</div>`;
+  startPolling();
 });
-$("#yes").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approve: true }) });
-$("#no").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approve: false }) });
-
-function agentsFor(company) {
-  return Object.values(state.agents).filter((a) => a.company === company);
-}
-function col(el, company, roleText, trackKey) {
-  const agents = agentsFor(company);
-  let html = `<h2>${esc(company)}</h2><div class="role">${esc(roleText)}</div>`;
-  for (const a of agents) {
-    html += `<div class="agent"><div class="top"><span class="dot ${a.status}"></span><span class="name">${esc(a.role)}</span>
-      <span class="badge ${a.platform === "Brainbase" ? "bb" : "wai"}">${esc(a.label)}</span></div>
-      <div class="last">${a.calls ? esc(a.last || "working…") : "waiting"}</div></div>`;
-  }
-  if (trackKey && state.tracks[trackKey]) {
-    const t = state.tracks[trackKey];
-    const o = t.offer;
-    html += `<div class="track">${o ? `<b>$${fmt(o.price)}/yr</b> · net ${o.paymentDays} · auto-renew ${o.autoRenew ? "yes +" + o.upliftPct + "%" : "no"} · liability ${o.liabilityCapMonths} mo` : "No offer yet"}
-      ${t.security ? `<br>Security: grade ${esc(t.security.grade)} ${t.security.passed ? "✓" : "✗"}` : ""}
-      ${t.eliminated ? `<br><span class="elim">Eliminated: ${esc(t.eliminated)}</span>` : ""}</div>`;
-  }
-  el.innerHTML = html;
-}
-function render() {
-  if (!state) return;
-  $("#stages").innerHTML = state.stages.map((s, i) =>
-    `<span class="chip ${i < state.stage || state.done ? "done" : i === state.stage ? "on" : ""}">${i + 1}. ${esc(s)}</span>`).join("");
-  col($("#c-acme"), "Acme Corp", "Buyer · budget $" + fmt(state.limits.budget) + " (private)", null);
-  col($("#c-beacon"), "Beacon Analytics", "Vendor · premium", "beacon");
-  col($("#c-quickdash"), "Quickdash", "Vendor · low price", "quickdash");
-  $("#feed").innerHTML = state.events.slice().reverse().map((e) =>
-    `<div class="ev"><div class="who">${new Date(e.t).toLocaleTimeString()} · ${esc(e.company)}${e.agent ? " · " + esc(state.agents[e.agent]?.role ?? e.agent) : ""}</div>
-     <div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("");
-  const ap = state.approval;
-  $("#approval").classList.toggle("show", !!ap && ap.status === "pending");
-  if (ap) { $("#aq").textContent = ap.question; $("#phone").textContent = `Phone: ${location.origin}/approve.html?deal=${state.id}`; }
-  if (state.done && state.winner) {
-    $("#result").classList.add("show");
-    const w = state.winner;
-    $("#result").innerHTML = `<b style="color:var(--ok)">Deal closed.</b> ${esc(w.name)} at $${fmt(w.offer.price)}/yr for ${w.offer.termMonths} months (total $${fmt(w.tcv)}).
-      PO ${esc(state.po || "-")} · Invoice ${esc(state.invoice?.id || "-")} (${esc(state.invoice?.status || "-")})
-      ${state.invoice?.url ? ` · <a href="${esc(state.invoice.url)}" target="_blank">Stripe invoice</a>` : ""}
-      ${state.tenant ? ` · <a href="${esc(state.tenant.path)}" target="_blank">Open Acme's live workspace →</a>` : ""}`;
-  } else if (state.done) {
-    $("#result").classList.add("show");
-    $("#result").innerHTML = `<b>No deal.</b> Every agent stayed inside its charter.`;
-  } else $("#result").classList.remove("show");
-}
-function tick() {
-  if (!state) return;
-  const end = state.finishedAt || Date.now();
-  const s = Math.max(0, Math.round((end - state.startedAt) / 1000));
-  $("#clock").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
-async function poll() {
-  clearInterval(timer);
-  const load = async () => {
-    const r = await fetch(`/api/deals/${dealId}`); state = await r.json(); render();
-    if (state?.done) clearInterval(timer);
-  };
-  await load();
-  timer = setInterval(load, 1000);
-}
-setInterval(tick, 250);
-if (dealId) poll();
+drawStatic();
+if (dealId) startPolling();
 </script>
 </body>
 </html>

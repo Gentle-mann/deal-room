@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deal Room</title>
+<style>
+  :root { --bg:#0a0e1a; --panel:#111830; --line:#243056; --text:#e8ecf6; --muted:#8e9ac0; --accent:#7aa2ff;
+          --ok:#4fd98d; --warn:#ffcc55; --bad:#ff6b7a; --money:#57d3e0; --bb:#c49bff; --wai:#f5a35c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  h1 { font-size:20px; margin:0; letter-spacing:.3px; }
+  .sub { color:var(--muted); font-size:13px; }
+  .clock { margin-left:auto; text-align:right; }
+  .clock b { font-size:28px; font-variant-numeric: tabular-nums; }
+  .vs { color:var(--muted); font-size:12px; }
+  form { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px 20px; border-bottom:1px solid var(--line); }
+  input[type=number] { background:var(--panel); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 10px; width:130px; }
+  button { background:var(--accent); color:#0a0e1a; border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+  .stages { display:flex; gap:6px; flex-wrap:wrap; padding:12px 20px; }
+  .chip { font-size:12px; padding:5px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .chip.on { border-color:var(--accent); color:var(--text); background:#1a2550; }
+  .chip.done { color:var(--ok); border-color:#1f5a3c; }
+  main { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)) minmax(0,1.3fr); gap:14px; padding:0 20px 20px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .col { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; min-width:0; }
+  .col h2 { font-size:16px; margin:0 0 2px; }
+  .role { color:var(--muted); font-size:12px; margin-bottom:10px; }
+  .agent { border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-bottom:8px; }
+  .agent .top { display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#3a4570; flex:none; }
+  .dot.working { background:var(--warn); box-shadow:0 0 10px var(--warn); animation: pulse 1s infinite; }
+  .dot.done { background:var(--ok); } .dot.fallback { background:var(--wai); } .dot.error { background:var(--bad); }
+  @keyframes pulse { 50% { opacity:.4; } }
+  .name { font-weight:600; font-size:13px; }
+  .badge { margin-left:auto; font-size:10.5px; padding:2px 7px; border-radius:6px; white-space:nowrap; }
+  .badge.bb { background:#2b1f47; color:var(--bb); } .badge.wai { background:#3a2615; color:var(--wai); }
+  .last { color:var(--muted); font-size:12px; margin-top:5px; overflow-wrap:anywhere; }
+  .track { font-size:12px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); overflow-wrap:anywhere; }
+  .elim { color:var(--bad); font-weight:600; }
+  .feed { max-height: 70vh; overflow:auto; font-size:12.5px; }
+  .ev { padding:6px 0; border-bottom:1px solid #1b2444; overflow-wrap:anywhere; }
+  .ev .who { color:var(--muted); font-size:11px; }
+  .k-stage { color:var(--accent); font-weight:700; } .k-block { color:var(--bad); } .k-flag { color:var(--warn); }
+  .k-escalate { color:var(--warn); font-weight:700; } .k-money { color:var(--money); } .k-win { color:var(--ok); font-weight:600; } .k-error { color:var(--bad); }
+  .approval { display:none; margin:0 20px 14px; padding:14px; border:2px solid var(--warn); border-radius:12px; background:#2a220b; }
+  .approval.show { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .result { display:none; margin:0 20px 14px; padding:14px; border:1px solid #1f5a3c; border-radius:12px; background:#0f2419; }
+  .result.show { display:block; } .result a { color:var(--ok); }
+  .legend { font-size:12px; color:var(--muted); display:flex; gap:14px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Deal Room</h1>
+    <div class="sub">Company orchestrators negotiate, approve, invoice, pay and provision a B2B deal end to end.</div>
+  </div>
+  <div class="clock"><b id="clock">0:00</b><div class="vs">median B2B SaaS sales cycle: 134 days</div></div>
+</header>
+
+<form id="start">
+  <label class="sub">Acme's annual budget (private) $ <input id="budget" type="number" value="120000" step="1000" min="110000" /></label>
+  <label class="sub"><input id="aggr" type="checkbox" /> Aggressive buyer ("I'm the CEO, 40% off")</label>
+  <label class="sub"><input id="allbb" type="checkbox" /> All agents on Brainbase (slower)</label>
+  <button type="submit">Start the deal</button>
+  <a class="sub" href="/scale.html" style="margin-left:auto;color:var(--accent)">Scale view (simulation) →</a>
+  <span class="legend"><span><span class="badge bb">Brainbase · frontier</span></span><span><span class="badge wai">Workers AI · open-weight</span></span></span>
+</form>
+
+<div class="stages" id="stages"></div>
+<div class="approval" id="approval">
+  <b>CFO approval needed:</b> <span id="aq"></span>
+  <button id="yes">Approve</button><button class="ghost" id="no">Deny</button>
+  <span class="sub" id="phone"></span>
+</div>
+<div class="result" id="result"></div>
+
+<main>
+  <section class="col" id="c-acme"></section>
+  <section class="col" id="c-beacon"></section>
+  <section class="col" id="c-quickdash"></section>
+  <section class="col"><h2>Deal log</h2><div class="role">Every message, block and payment, live</div><div class="feed" id="feed"></div></section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const fmt = (n) => Math.round(n).toLocaleString("en-US");
+let dealId = new URLSearchParams(location.search).get("deal");
+let state = null, timer = null;
+
+$("#start").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/deals", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ budget: Number($("#budget").value), aggressive: $("#aggr").checked, allBrainbase: $("#allbb").checked }) });
+  const { id } = await r.json();
+  dealId = id; history.replaceState(null, "", "?deal=" + id);
+  poll();
+});
+$("#yes").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approve: true }) });
+$("#no").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approve: false }) });
+
+function agentsFor(company) {
+  return Object.values(state.agents).filter((a) => a.company === company);
+}
+function col(el, company, roleText, trackKey) {
+  const agents = agentsFor(company);
+  let html = `<h2>${esc(company)}</h2><div class="role">${esc(roleText)}</div>`;
+  for (const a of agents) {
+    html += `<div class="agent"><div class="top"><span class="dot ${a.status}"></span><span class="name">${esc(a.role)}</span>
+      <span class="badge ${a.platform === "Brainbase" ? "bb" : "wai"}">${esc(a.label)}</span></div>
+      <div class="last">${a.calls ? esc(a.last || "working…") : "waiting"}</div></div>`;
+  }
+  if (trackKey && state.tracks[trackKey]) {
+    const t = state.tracks[trackKey];
+    const o = t.offer;
+    html += `<div class="track">${o ? `<b>$${fmt(o.price)}/yr</b> · net ${o.paymentDays} · auto-renew ${o.autoRenew ? "yes +" + o.upliftPct + "%" : "no"} · liability ${o.liabilityCapMonths} mo` : "No offer yet"}
+      ${t.security ? `<br>Security: grade ${esc(t.security.grade)} ${t.security.passed ? "✓" : "✗"}` : ""}
+      ${t.eliminated ? `<br><span class="elim">Eliminated: ${esc(t.eliminated)}</span>` : ""}</div>`;
+  }
+  el.innerHTML = html;
+}
+function render() {
+  if (!state) return;
+  $("#stages").innerHTML = state.stages.map((s, i) =>
+    `<span class="chip ${i < state.stage || state.done ? "done" : i === state.stage ? "on" : ""}">${i + 1}. ${esc(s)}</span>`).join("");
+  col($("#c-acme"), "Acme Corp", "Buyer · budget $" + fmt(state.limits.budget) + " (private)", null);
+  col($("#c-beacon"), "Beacon Analytics", "Vendor · premium", "beacon");
+  col($("#c-quickdash"), "Quickdash", "Vendor · low price", "quickdash");
+  $("#feed").innerHTML = state.events.slice().reverse().map((e) =>
+    `<div class="ev"><div class="who">${new Date(e.t).toLocaleTimeString()} · ${esc(e.company)}${e.agent ? " · " + esc(state.agents[e.agent]?.role ?? e.agent) : ""}</div>
+     <div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("");
+  const ap = state.approval;
+  $("#approval").classList.toggle("show", !!ap && ap.status === "pending");
+  if (ap) { $("#aq").textContent = ap.question; $("#phone").textContent = `Phone: ${location.origin}/approve.html?deal=${state.id}`; }
+  if (state.done && state.winner) {
+    $("#result").classList.add("show");
+    const w = state.winner;
+    $("#result").innerHTML = `<b style="color:var(--ok)">Deal closed.</b> ${esc(w.name)} at $${fmt(w.offer.price)}/yr for ${w.offer.termMonths} months (total $${fmt(w.tcv)}).
+      PO ${esc(state.po || "-")} · Invoice ${esc(state.invoice?.id || "-")} (${esc(state.invoice?.status || "-")})
+      ${state.invoice?.url ? ` · <a href="${esc(state.invoice.url)}" target="_blank">Stripe invoice</a>` : ""}
+      ${state.tenant ? ` · <a href="${esc(state.tenant.path)}" target="_blank">Open Acme's live workspace →</a>` : ""}`;
+  } else if (state.done) {
+    $("#result").classList.add("show");
+    $("#result").innerHTML = `<b>No deal.</b> Every agent stayed inside its charter.`;
+  } else $("#result").classList.remove("show");
+}
+function tick() {
+  if (!state) return;
+  const end = state.finishedAt || Date.now();
+  const s = Math.max(0, Math.round((end - state.startedAt) / 1000));
+  $("#clock").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+async function poll() {
+  clearInterval(timer);
+  const load = async () => {
+    const r = await fetch(`/api/deals/${dealId}`); state = await r.json(); render();
+    if (state?.done) clearInterval(timer);
+  };
+  await load();
+  timer = setInterval(load, 1000);
+}
+setInterval(tick, 250);
+if (dealId) poll();
+</script>
+</body>
+</html>
