@@ -72,6 +72,43 @@
 .sources li { font:400 13px/18px Inter,sans-serif; color:var(--text-2); overflow-wrap:anywhere; }
 .sources a { color:var(--text); font-weight:600; }
 .sent { margin-top:10px; font:400 14px/20px Inter,sans-serif; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+/* ---------- snapshot: one agent's real work, replayed ---------- */
+.snap { position:fixed; inset:0; z-index:40; background:var(--scrim); display:grid; place-items:center; padding:24px; animation:fadein 240ms var(--ease-out); }
+.snapcard { width:min(1080px,100%); max-height:calc(100vh - 48px); overflow:auto; background:var(--surface-1); border:1px solid var(--line-strong); border-radius:16px; box-shadow:var(--shadow-lg); padding:24px 28px; animation:rise 360ms var(--ease-out); }
+.snaphead { display:flex; align-items:flex-start; gap:16px; }
+.snapav { width:44px; height:44px; border-radius:12px; background:var(--text); color:var(--bg); display:grid; place-items:center; font:700 16px/1 Inter,sans-serif; flex:none; }
+.snaphead h2 { margin:0; font:700 24px/30px Inter,sans-serif; letter-spacing:-0.02em; }
+.snaphead .sub { margin-top:2px; font:400 14px/20px Inter,sans-serif; color:var(--text-2); }
+.snaphead .acts { margin-left:auto; display:flex; gap:8px; }
+.snapask { margin-top:18px; padding:12px 16px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); font:500 16px/24px Inter,sans-serif; }
+.snapask .lbl, .snapcol .lbl { font:600 12px/16px Inter,sans-serif; color:var(--text-3); letter-spacing:.02em; text-transform:uppercase; margin-bottom:6px; }
+.snapgrid { display:grid; grid-template-columns:1.15fr 1fr; gap:20px; margin-top:18px; }
+.snapcol { min-width:0; }
+.tl { list-style:none; margin:0; padding:0; position:relative; }
+.tl::before { content:""; position:absolute; left:15px; top:8px; bottom:8px; width:2px; background:var(--line); }
+.tl li { position:relative; padding:0 0 12px 40px; opacity:0; transform:translateY(6px); transition:opacity 260ms var(--ease-out), transform 260ms var(--ease-out); }
+.tl li.in { opacity:1; transform:none; }
+.tl li::before { content:""; position:absolute; left:10px; top:6px; width:12px; height:12px; border-radius:50%; background:var(--surface-1); border:2px solid var(--text-3); }
+.tl li.in.done::before { background:var(--green); border-color:var(--green); }
+.tl li.in.run::before { background:var(--amber); border-color:var(--amber); }
+.tl .row { display:flex; align-items:center; gap:8px; min-width:0; }
+.tl .tt { font:500 14px/20px Inter,sans-serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.tl .ms { margin-left:auto; font:500 12px/16px "JetBrains Mono",monospace; color:var(--text-3); white-space:nowrap; }
+.tl .note { margin-top:2px; font:400 13px/18px Inter,sans-serif; color:var(--text-2); }
+.decide { border:1px solid var(--line-strong); border-radius:12px; padding:16px; background:var(--surface-2); opacity:0; transition:opacity 400ms var(--ease-out); }
+.decide.in { opacity:1; }
+.nums { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.nums div { border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+.nums b { display:block; font:700 22px/28px Inter,sans-serif; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+.nums span { font:500 12px/16px Inter,sans-serif; color:var(--text-3); }
+.why { margin-top:12px; font:400 14px/21px Inter,sans-serif; color:var(--text); }
+.impact { margin:12px 0 0; padding:0; list-style:none; display:grid; gap:6px; opacity:0; transition:opacity 400ms var(--ease-out); }
+.impact.in { opacity:1; }
+.impact li { font:500 14px/20px Inter,sans-serif; padding-left:18px; position:relative; }
+.impact li::before { content:"→"; position:absolute; left:0; color:var(--green-text); }
+.snapfoot { margin-top:16px; font:400 12px/16px "JetBrains Mono",monospace; color:var(--text-3); }
+@media (max-width: 1100px) { .snapgrid { grid-template-columns:1fr; } }
 @media (max-width: 1360px), (max-height: 780px) {
   .main { grid-template-columns:minmax(0,1fr) 360px; } .main.spot { grid-template-columns:minmax(0,1fr) 480px; }
   .left { grid-template-rows:minmax(0,1fr) 232px; }
@@ -99,6 +136,7 @@
         <label><input id="allbb" type="checkbox" /> All agents on Brainbase</label>
       </div>
     </div>
+    <button class="btn btn-ghost" id="snapBtn" type="button">Show snapshot <kbd>N</kbd></button>
     <a class="btn btn-ghost" href="/scale.html" id="scaleBtn">Scale view <kbd>V</kbd></a>
     <button class="btn btn-ghost" id="startBtn" type="button">Start deal <kbd>S</kbd></button>
     <button class="btn btn-primary" id="tourBtn" type="button">▶ Demo tour <kbd>D</kbd></button>
@@ -141,6 +179,7 @@
   </aside>
 </div>
 
+<div class="snap hidden" id="snap"></div>
 <script type="module">
 import { buildStyle, code, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
 import { createDealChart, fmtDuration } from "/timechart.js";
@@ -557,6 +596,65 @@ async function startDealInner() {
 }
 $("#startBtn").onclick = () => { tour = null; $("#tourPill").classList.add("hidden"); startDeal(); };
 
+
+// ---------- snapshot: a recorded run of one agent's real work (production deal 1fe45c), replayed for the demo ----------
+const SNAP = {
+  deal: "1fe45c", agent: "Procurement analyst", company: "Acme Corp", model: "Claude Sonnet 5 on Brainbase", thread: "ef892d62", took: "2m 19s",
+  from: "Acme · Procurement", ask: "Prepare the negotiation brief for Acme's analytics purchase: research the market on the web and read Acme's internal files.",
+  steps: [
+    { code: "TOOL", title: "find /workspace/acme -type f", ms: 720, note: "Found Acme's 4 internal files" },
+    { code: "SEARCH", title: "typical discount percentage multi-year enterprise SaaS contract 2026 benchmark", ms: 15764, note: "2026 benchmarks: multi-year enterprise discounts commonly land at 15–25%" },
+    { code: "SEARCH", title: "typical SaaS renewal price increase cap annual uplift enterprise contract 2026", ms: 18673, note: "Negotiated uplift caps sit at 5–8% a year; uncapped uplifts run 8–16%" },
+    { code: "READ", title: "acme/procurement-policy.md", ms: 352, note: "Multi-year deals must target at least 15% off list; uplift cap 3%" },
+    { code: "READ", title: "acme/budget-memo-fy27.md", ms: 458, note: "CFO ceiling: $120,000 a year, 24-month term preferred" },
+    { code: "READ", title: "acme/pilot-usage.md", ms: 317, note: "250 seats, 85% weekly active, 64 analysts in the EU" },
+    { code: "READ", title: "acme/contracts/past-analytics-contracts.csv", ms: 427, note: "2024 Larkspur deal: 24 months, 20% off list. The closest comparable" },
+  ],
+  decision: [["28% off", "open at"], ["20% off", "target"], ["$120,000", "walk away above"]],
+  why: "20% matches the proven 2024 Larkspur comparable (24 months, similar seat count) and sits mid-band of the 15–25% multi-year SaaS benchmark, above Acme's 15% policy floor. The walk-away is pinned to the CFO's hard $120K ceiling.",
+  check: "2 web sources and 4 internal files cited · walk-away capped at the budget",
+  impact: ["Procurement negotiated from this brief", "Beacon Analytics agreed to $120,000/yr in round 1: exactly 20% off its $150,000 list price", "The deal closed in 5m 04s and the Stripe invoice was paid"],
+};
+let snapTimers = [];
+function openSnapshot() {
+  const el = $("#snap"), S = SNAP;
+  el.innerHTML = `<div class="snapcard" role="dialog" aria-label="Agent snapshot">
+    <div class="snaphead"><div class="snapav">AI</div><div style="min-width:0"><h2>${esc(S.agent)} · ${esc(S.company)}</h2>
+      <div class="sub">${esc(S.model)} · <span class="mono">thread ${esc(S.thread)}…</span> · worked ${esc(S.took)} · snapshot of deal <span class="mono">${esc(S.deal)}</span></div></div>
+      <div class="acts"><button class="btn btn-ghost" id="snapReplay" type="button">Replay</button><button class="btn btn-ghost" id="snapClose" type="button">Close <kbd>Esc</kbd></button></div></div>
+    <div class="snapask"><div class="lbl">Task from ${esc(S.from)}</div>${esc(S.ask)}</div>
+    <div class="snapgrid">
+      <div class="snapcol"><div class="lbl">What it did · ${S.steps.length} real tool calls</div><ol class="tl">${S.steps.map((st) => `<li><div class="row"><span class="code">${st.code}</span><span class="tt">${esc(st.code === "SEARCH" ? `"${st.title}"` : st.title)}</span><span class="ms"></span></div><div class="note">${esc(st.note)}</div></li>`).join("")}</ol></div>
+      <div class="snapcol"><div class="lbl">What it decided</div>
+        <div class="decide"><div class="nums">${S.decision.map(([v, k]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
+          <div class="why">${esc(S.why)}</div>
+          <div class="check ok"><span class="ic">✓</span><div><div class="ct">Charter check passed</div><div class="cn">${esc(S.check)}</div></div></div>
+          <div class="sent">→ Sent to <b>Acme · Procurement</b> <span class="code">BRIEF</span></div></div>
+        <div class="lbl" style="margin-top:16px">What happened next</div><ul class="impact">${S.impact.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+    </div>
+    <div class="snapfoot">Recorded from a real production run: every step above is a real tool call the agent made on Brainbase.</div></div>`;
+  el.classList.remove("hidden");
+  $("#snapClose").onclick = closeSnapshot; $("#snapReplay").onclick = playSnapshot;
+  el.onclick = (e) => { if (e.target === el) closeSnapshot(); };
+  playSnapshot();
+}
+function playSnapshot() {
+  snapTimers.forEach(clearTimeout); snapTimers = [];
+  const items = [...document.querySelectorAll("#snap .tl li")], dec = $("#snap .decide"), imp = $("#snap .impact");
+  items.forEach((li) => { li.className = ""; li.querySelector(".ms").textContent = ""; }); dec.classList.remove("in"); imp.classList.remove("in");
+  let t = 400;
+  SNAP.steps.forEach((st, i) => {
+    const li = items[i];
+    snapTimers.push(setTimeout(() => { li.className = "in run"; li.querySelector(".ms").textContent = "running…"; }, t));
+    t += st.code === "SEARCH" ? 1300 : 650; // searches take longer, as they did
+    snapTimers.push(setTimeout(() => { li.className = "in done"; li.querySelector(".ms").textContent = (st.ms / 1000).toFixed(1) + "s"; }, t));
+  });
+  snapTimers.push(setTimeout(() => dec.classList.add("in"), t + 400));
+  snapTimers.push(setTimeout(() => imp.classList.add("in"), t + 1600));
+}
+function closeSnapshot() { snapTimers.forEach(clearTimeout); $("#snap").classList.add("hidden"); }
+$("#snapBtn").onclick = openSnapshot;
+
 // ---------- header controls + keyboard ----------
 $("#optBtn").onclick = (e) => { e.stopPropagation(); $("#optMenu").classList.toggle("hidden"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".options")) $("#optMenu").classList.add("hidden"); });
@@ -575,7 +673,8 @@ document.addEventListener("keydown", (e) => {
   else if (k === "]") { $("#main").classList.toggle("nopanel"); relayout(() => fitSafe()); }
   else if (k === "v" || k === "V") location.href = "/scale.html";
   else if (k === "Enter" && focusId && !spotId) spotlight(focusId);
-  else if (k === "Escape") { if (!$("#takeover").classList.contains("hidden")) dismissTakeover(); else if (spotId) exitSpotlight(); }
+  else if (k === "n" || k === "N") openSnapshot();
+  else if (k === "Escape") { if (!$("#snap").classList.contains("hidden")) closeSnapshot(); else if (!$("#takeover").classList.contains("hidden")) dismissTakeover(); else if (spotId) exitSpotlight(); }
   else return;
   e.preventDefault();
 });
