@@ -34,6 +34,8 @@ CounterAgent gives every company a deal orchestrator: one frontier agent command
 
 There is no human in the loop. Trust comes from charters. Every agent has one: what it can do alone, what it must escalate, and what it must prove. Charters are enforced in code, not by the model. In our runs you can watch a vendor's own agent offer a price below its floor and get blocked by its own charter. You can also watch a subagent try to go around procurement to the buyer's orchestrator and get stopped by the channel rule: subagents only talk to their counterpart at the other company, and only orchestrators can commit the company.
 
+A live human clock runs next to the agents. Every interaction adds the typical time a human team takes for that step, from published benchmarks (an email negotiation turn, a security questionnaire, a legal redline, invoice processing). A full deal comes to about 106 human days, 85 of them before signature, right on the 84-day industry median, against about five minutes for the agents.
+
 Spotlight lets you open any agent and see its real work. For the analyst that means every web search and file read as it happens, then the sources it cited. For the others it is the message it received, the charter it runs under, its raw model output, the charter check, and where it sent the result. A scale view shows the same chain-of-command architecture grown to thousands of agents. That view is a simulation of the same architecture; the deal itself is real.
 
 ## How we built it
@@ -51,7 +53,7 @@ Spotlight lets you open any agent and see its real work. For the analyst that me
 - Making approvals fail closed, so that an unreadable model reply never counts as a yes.
 
 ## Accomplishments that we're proud of
-- An analyst agent that makes a real judgment call: it found that Acme's own 2024 contract got 20% off for a 24-month term, checked that against 2026 market benchmarks, and set the negotiation target from that evidence, with sources.
+- An analyst agent that makes a real judgment call: it found that Acme's own 2024 contract got 20% off for a 24-month term, checked that against 2026 market benchmarks, and set the negotiation target from that evidence, with sources. The deal landed exactly on that target.
 - A B2B deal closed end to end in about five minutes on the deployed app, including a real Stripe test-mode invoice sent and paid by agents.
 - Governance you can watch: blocked offers, blocked out-of-channel messages, a blocked fraudulent bank-detail change, and approvals routed up the chain of command.
 - Every agent's real model calls can be inspected live.
