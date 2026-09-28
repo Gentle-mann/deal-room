@@ -31,7 +31,8 @@ export type Buyer = {
   minPaymentDays: number;
   maxUpliftPct: number;
   minLiabilityCapMonths: number;
-  cfoApprovalOverTcv: number; // total contract value that needs a human CFO
+  financeAuthorityTcv: number; // finance can commit up to this total contract value on its own
+  orchestratorAuthorityTcv: number; // the orchestrator approves above finance, up to this; code enforces it
   agents: AgentDef[];
 };
 
@@ -75,7 +76,8 @@ export const BUYER: Buyer = {
   minPaymentDays: 45,
   maxUpliftPct: 3,
   minLiabilityCapMonths: 12,
-  cfoApprovalOverTcv: 200_000,
+  financeAuthorityTcv: 200_000,
+  orchestratorAuthorityTcv: 500_000,
   agents: [
     { id: "acme.orchestrator", role: "Chief deal orchestrator", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
     { id: "acme.procurement", reportsTo: "acme.orchestrator", role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },

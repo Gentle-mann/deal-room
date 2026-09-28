@@ -31,10 +31,6 @@ export default {
       }
       if (p[1] === "deals" && p[2]) {
         if (req.method === "GET" && p.length === 3) return json(await stub(env, p[2]).getState());
-        if (req.method === "POST" && p[3] === "approve") {
-          const { approve } = (await req.json().catch(() => ({}))) as { approve?: boolean };
-          return json(await stub(env, p[2]).decide(!!approve));
-        }
       }
       // Dev-only: raw Workers AI output and latency for a model
       if (p[1] === "debug-ai" && url.hostname === "localhost") {

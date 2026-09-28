@@ -8,7 +8,12 @@
 <style>
 :root {
   --bg:#000; --panel:#0a0a0a; --panel2:#111; --line:#1f1f1f; --line2:#2c2c2c; --text:#f2f2f2; --muted:#8a8a8a; --dim:#5a5a5a;
-  --red:#ff4d4f; --green:#3ddc84; --amber:#f5b700;
+  --cap:rgba(10,10,10,.92); --card:#0d0d0d; --shadow:rgba(0,0,0,.8); --chart:#050505;
+  --red:#ff4d4f; --green:#2fbf71; --amber:#e0a800;
+}
+:root[data-theme="light"] {
+  --bg:#ffffff; --panel:#fafafa; --panel2:#f3f3f3; --line:#e8e8e8; --line2:#d6d6d6; --text:#111111; --muted:#666666; --dim:#9a9a9a;
+  --cap:rgba(255,255,255,.95); --card:#ffffff; --shadow:rgba(0,0,0,.14); --chart:#ffffff;
 }
 * { box-sizing:border-box; }
 html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -17,7 +22,7 @@ header { display:flex; align-items:center; gap:16px; padding:12px 18px; border-b
 .brand b { font-size:16px; letter-spacing:.2px; } .brand span { color:var(--muted); font-size:12px; margin-left:10px; }
 form { display:flex; align-items:center; gap:8px; margin-left:12px; }
 input[type=number] { background:var(--panel2); border:1px solid var(--line2); color:var(--text); border-radius:6px; padding:6px 8px; width:100px; font-size:12.5px; }
-button { background:var(--text); color:#000; border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
+button { background:var(--text); color:var(--bg); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
 button.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
 button.on { border-color:var(--text); }
 details { position:relative; font-size:12.5px; color:var(--muted); }
@@ -32,11 +37,11 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
 .stage { position:relative; min-height:0; }
 #cy { position:absolute; top:42px; bottom:104px; left:0; right:0; }
 .steps { position:absolute; left:16px; top:12px; right:200px; display:flex; gap:4px; flex-wrap:wrap; z-index:3; pointer-events:none; }
-.step { font-size:10.5px; padding:3px 8px; border-radius:999px; border:1px solid var(--line2); color:var(--dim); background:#000; }
-.step.on { color:var(--text); border-color:var(--text); } .step.done { color:var(--muted); border-color:var(--line2); text-decoration:line-through; text-decoration-color:#444; }
+.step { font-size:10.5px; padding:3px 8px; border-radius:999px; border:1px solid var(--line2); color:var(--dim); background:var(--bg); }
+.step.on { color:var(--text); border-color:var(--text); } .step.done { color:var(--muted); border-color:var(--line2); text-decoration:line-through; text-decoration-color:var(--dim); }
 .viewbtns { position:absolute; right:14px; top:10px; display:flex; gap:6px; z-index:3; }
 .caption { position:absolute; left:16px; right:16px; bottom:14px; z-index:3; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
-.cap { background:rgba(10,10,10,.92); border:1px solid var(--line2); border-left:3px solid var(--text); border-radius:8px; padding:8px 12px; font-size:13px; max-width:760px; }
+.cap { background:var(--cap); border:1px solid var(--line2); border-left:3px solid var(--text); border-radius:8px; padding:8px 12px; font-size:13px; max-width:760px; }
 .cap .who { color:var(--muted); font-size:11px; margin-bottom:2px; }
 .cap.block { border-left-color:var(--red); } .cap.money, .cap.win { border-left-color:var(--green); } .cap.escalate, .cap.flag { border-left-color:var(--amber); }
 .side { border-left:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; min-height:0; }
@@ -45,23 +50,22 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
 .tabs button.active { color:var(--text); border-bottom-color:var(--text); }
 .pane { overflow:auto; padding:14px; flex:1; min-height:0; }
 .hidden { display:none !important; }
+#theme { min-width:34px; padding:6px 8px; }
 .fhead h3 { margin:0; font-size:15px; } .fhead .sub { color:var(--muted); font-size:12px; margin-top:2px; }
 .tag { display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:4px; border:1px solid var(--line2); color:var(--muted); margin:6px 6px 0 0; }
-.job { font-size:13px; color:#cfcfcf; margin:10px 0 12px; }
+.job { font-size:13px; color:var(--text); margin:10px 0 12px; }
 .cbox { border:1px solid var(--line2); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
 .cbox h4 { margin:0 0 4px; font-size:10.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); }
-.cbox ul { margin:0; padding-left:16px; font-size:12.5px; color:#dcdcdc; }
+.cbox ul { margin:0; padding-left:16px; font-size:12.5px; color:var(--text); }
 .st { font-size:10.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin:14px 0 6px; }
 .item { font-size:12.5px; border-bottom:1px solid var(--line); padding:7px 0; overflow-wrap:anywhere; }
 .item .meta { color:var(--dim); font-size:11px; }
 .k-block { color:var(--red); } .k-flag, .k-escalate { color:var(--amber); } .k-money, .k-win { color:var(--green); } .k-stage { color:var(--text); font-weight:600; } .k-error { color:var(--red); }
-.chart { width:100%; height:140px; border:1px solid var(--line2); border-radius:8px; background:#050505; }
+.chart { width:100%; height:140px; border:1px solid var(--line2); border-radius:8px; background:var(--chart); }
 .overlay { position:absolute; left:50%; transform:translateX(-50%); z-index:6; }
-.approval { top:52px; width:min(520px,92%); background:#0d0d0d; border:1px solid var(--amber); border-radius:10px; padding:14px 16px; box-shadow:0 20px 60px rgba(0,0,0,.8); }
-.approval .q { font-size:14.5px; margin:6px 0 12px; }
-.closed { top:52px; width:min(620px,92%); background:#0d0d0d; border:1px solid var(--green); border-radius:10px; padding:14px 16px; box-shadow:0 20px 60px rgba(0,0,0,.8); }
+.closed { top:52px; width:min(620px,92%); background:var(--card); border:1px solid var(--green); border-radius:10px; padding:14px 16px; box-shadow:0 20px 60px var(--shadow); }
 .closed b.big { font-size:20px; } .closed a { color:var(--text); font-weight:600; margin-right:14px; }
-.invoice { bottom:84px; width:min(480px,92%); background:#fff; color:#111; border-radius:10px; padding:16px 18px; box-shadow:0 24px 70px rgba(0,0,0,.85); font-size:13px; }
+.invoice { bottom:84px; width:min(480px,92%); background:#fff; color:#111; border:1px solid #d6d6d6; border-radius:10px; padding:16px 18px; box-shadow:0 24px 70px var(--shadow); font-size:13px; }
 .invoice .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
 .invoice .brandmark { font-weight:800; font-size:16px; letter-spacing:-.2px; }
 .invoice .pill { font-size:10px; border:1px solid #111; padding:1px 6px; border-radius:4px; font-weight:700; }
@@ -84,6 +88,7 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
     </div></details>
     <button type="submit">Start deal</button>
   </form>
+  <button class="ghost" id="theme" type="button" title="Toggle light / dark">◐</button>
   <div class="clock"><b id="clock">0:00</b><div>vs. 134-day median sales cycle</div></div>
 </header>
 <div class="main">
@@ -92,12 +97,6 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
     <div class="steps" id="steps"></div>
     <div class="viewbtns"><button class="ghost" id="follow">Follow</button><button class="ghost" id="fit">Big picture</button></div>
     <div class="caption" id="caption"></div>
-    <div class="overlay approval hidden" id="approval">
-      <b style="color:var(--amber)">Human approval required</b>
-      <div class="q" id="aq"></div>
-      <button id="yes">Approve</button> <button class="ghost" id="no">Deny</button>
-      <div style="color:var(--muted);font-size:11.5px;margin-top:8px" id="phone"></div>
-    </div>
     <div class="overlay closed hidden" id="closed"></div>
     <div class="overlay invoice hidden" id="invoice"></div>
   </div>
@@ -109,12 +108,14 @@ details label { display:flex; gap:8px; align-items:center; color:var(--text); }
 </div>
 
 <script type="module">
-import { STYLE, ART, RED, buildElements, setPose, sendPacket } from "/graph.js";
+import { buildStyle, ART, RED, buildElements, setPose, sendPacket, applyTheme, getTheme, theme } from "/graph.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
 
-const cy = cytoscape({ container: $("#cy"), style: STYLE, elements: [], wheelSensitivity: 0.25, minZoom: 0.05, maxZoom: 3 });
+applyTheme(getTheme());
+const cy = cytoscape({ container: $("#cy"), style: buildStyle(), elements: [], wheelSensitivity: 0.25, minZoom: 0.05, maxZoom: 3 });
+$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle()); applyPoses(); renderFocus(); };
 window.cy = cy;
 
 let dealId = new URLSearchParams(location.search).get("deal"), state = null, seen = 0, focusId = null, timer = null, builtFor = null;
@@ -126,12 +127,11 @@ function companiesFrom(s) {
   const map = new Map();
   const add = (company, m) => { if (!map.has(company)) map.set(company, { name: company, buyer: company === s.buyer, members: [] }); map.get(company).members.push(m); };
   for (const [id, a] of Object.entries(s.agents)) add(a.company, { id, reportsTo: a.reportsTo, role: a.role, model: a.label, frontier: a.platform === "Brainbase" });
-  for (const h of s.humans || []) add(h.company, { id: h.id, role: h.role, human: true, oversees: h.oversees });
   return [...map.values()];
 }
 function build(s) {
   cy.elements().remove();
-  cy.add(buildElements(companiesFrom(s), (m) => m.human ? `${m.role} (human)\napproves exceptions` : `${m.role}\n${m.model}`));
+  cy.add(buildElements(companiesFrom(s), (m) => `${m.role}\n${m.model}`).els);
   cy.fit(cy.elements(), 50);
   builtFor = s.id;
 }
@@ -156,7 +156,6 @@ function applyPoses() {
     const id = n.id(), a = state.agents[id];
     let pose = "idle";
     if (blockedUntil[id] > Date.now()) pose = "block";
-    else if (id.startsWith("human.")) pose = state.approval?.status === "pending" ? "wait" : state.approval ? "done" : "idle";
     else if (a?.status === "working") pose = "work";
     else if (state.done && state.winner && (id.startsWith(state.winner.key) || id.startsWith("acme"))) pose = "done";
     setPose(n, pose, frame);
@@ -171,23 +170,24 @@ function zoomTo(id) { const n = cy.getElementById(id); if (n.nonempty()) cy.anim
 cy.on("tap", "node.agent", (evt) => { focusId = evt.target.id(); showTab("focus"); zoomTo(focusId); renderFocus(); });
 
 // panels
-function nameOf(id) { return state.agents[id] ? `${state.agents[id].company} · ${state.agents[id].role}` : (state.humans || []).find((h) => h.id === id)?.role || id; }
+function nameOf(id) { return state.agents[id] ? `${state.agents[id].company} · ${state.agents[id].role}` : id; }
 function renderFocus() {
   if (!state || !focusId) return;
-  const id = focusId, a = state.agents[id], human = !a, prof = state.profiles?.[id] || { job:"", can:[], ask:[], prove:[] };
+  const id = focusId, a = state.agents[id], prof = state.profiles?.[id] || { job:"", can:[], ask:[], prove:[] };
+  if (!a) return;
   const mine = state.events.filter((e) => e.agent === id || e.to === id).slice().reverse();
   const track = a && id.endsWith(".desk") && Object.values(state.tracks).find((t) => id.startsWith(t.key));
-  const boss = a?.reportsTo ? nameOf(a.reportsTo) : human ? "oversees " + nameOf((state.humans.find((h) => h.id === id) || {}).oversees) : "top of the chain of command";
+  const boss = a.reportsTo ? nameOf(a.reportsTo) : "top of the chain of command";
   const list = (xs) => xs.length ? `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div style="color:var(--dim);font-size:12px">—</div>`;
   $("#focus").innerHTML = `
-    <div class="fhead"><h3>${esc(human ? "CFO (human)" : a.role)}</h3><div class="sub">${esc(human ? state.buyer : a.company)} · reports to: ${esc(boss)}</div>
-      <span class="tag">${esc(human ? "human in the loop" : a.platform === "Brainbase" ? "frontier · " + a.label : "open-weight · " + a.label)}</span>${human ? "" : `<span class="tag">${a.calls} calls · ${esc(a.status)}</span>`}</div>
+    <div class="fhead"><h3>${esc(a.role)}</h3><div class="sub">${esc(a.company)} · reports to: ${esc(boss)}</div>
+      <span class="tag">${esc(a.platform === "Brainbase" ? "frontier · " + a.label : "open-weight · " + a.label)}</span><span class="tag">${a.calls} calls · ${esc(a.status)}</span></div>
     <div class="job">${esc(prof.job)}</div>
     <div class="cbox"><h4>Can do alone</h4>${list(prof.can)}</div>
     <div class="cbox"><h4>Must ask</h4>${list(prof.ask)}</div>
     <div class="cbox"><h4>Must prove</h4>${list(prof.prove)}</div>
     ${track || id === "acme.procurement" ? `<div class="st">Price per year, round by round</div>${chart(track ? [track] : Object.values(state.tracks))}` : ""}
-    ${!human && a.last ? `<div class="st">Latest output</div><div class="item">${esc(a.last)}</div>` : ""}
+    ${a.last ? `<div class="st">Latest output</div><div class="item">${esc(a.last)}</div>` : ""}
     <div class="st">Inbox / outbox · ${mine.length}</div>
     ${mine.map((e) => `<div class="item"><div class="meta">${new Date(e.t).toLocaleTimeString()} · ${e.agent === id ? "sent → " + esc(nameOf(e.to || "")) : "from " + esc(nameOf(e.agent))} ${ART[e.art] || ""}</div><div class="k-${e.kind}">${esc(e.text)}</div></div>`).join("") || `<div style="color:var(--dim);font-size:12px">Nothing yet.</div>`}`;
 }
@@ -198,7 +198,7 @@ function chart(tracks) {
   let s = `<svg class="chart" viewBox="0 0 ${W} ${H}"><line x1="${P}" x2="${W - 6}" y1="${Y(state.limits.budget)}" y2="${Y(state.limits.budget)}" stroke="#555" stroke-dasharray="3 3"/><text x="${W - 8}" y="${Y(state.limits.budget) - 4}" fill="#777" font-size="9" text-anchor="end">buyer budget (private)</text>`;
   tracks.forEach((t, ti) => {
     const hs = (t.history || []).map((h, i) => ({ ...h, i })), n = Math.max(2, hs.length), X = (i) => P + (i * (W - P * 1.6)) / (n - 1);
-    const v = hs.filter((h) => h.by === "vendor"), b = hs.filter((h) => h.by === "buyer"), col = ti ? "#9a9a9a" : "#ffffff";
+    const v = hs.filter((h) => h.by === "vendor"), b = hs.filter((h) => h.by === "buyer"), col = ti ? theme().open : theme().strong;
     if (v.length > 1) s += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${v.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
     if (b.length > 1) s += `<polyline fill="none" stroke="#666" stroke-dasharray="3 3" points="${b.map((h) => `${X(h.i)},${Y(h.price)}`).join(" ")}"/>`;
     v.forEach((h) => { s += `<circle cx="${X(h.i)}" cy="${Y(h.price)}" r="3.5" fill="${col}"/>`; if (h.blocked && h.asked && h.asked !== h.price) s += `<text x="${X(h.i)}" y="${Y(h.asked)}" fill="${RED}" font-size="12" text-anchor="middle" dominant-baseline="central">✕</text>`; });
@@ -216,9 +216,6 @@ function renderCaption() {
   $("#caption").innerHTML = evs.map((e) => `<div class="cap ${e.kind}"><div class="who">${esc(state.agents[e.agent] ? nameOf(e.agent) : e.company)} ${ART[e.art] || ""}</div>${esc(e.text.length > 220 ? e.text.slice(0, 220) + "…" : e.text)}</div>`).join("");
 }
 function renderOverlays() {
-  const ap = state.approval;
-  $("#approval").classList.toggle("hidden", !(ap && ap.status === "pending"));
-  if (ap) { $("#aq").textContent = ap.question; $("#phone").textContent = `Phone: ${location.origin}/approve.html?deal=${state.id}`; }
   const inv = state.invoice, box = $("#invoice"), show = inv && inv.sentAt && (!inv.paidAt || Date.now() - inv.paidAt < 12000);
   box.classList.toggle("hidden", !show);
   if (show) {
@@ -235,15 +232,13 @@ function renderOverlays() {
     const secs = Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000);
     c.innerHTML = state.winner
       ? `<b class="big">Closed in ${Math.floor(secs / 60)}m ${secs % 60}s</b> <span style="color:var(--muted)">· median is 134 days</span>
-         <div style="margin:6px 0 8px;color:#cfcfcf">${esc(state.winner.name)} · $${fmt(state.winner.offer.price)}/yr · ${state.winner.offer.termMonths} mo · total $${fmt(state.winner.tcv)} · ${esc(state.po)}</div>
+         <div style="margin:6px 0 8px;color:var(--muted)">${esc(state.winner.name)} · $${fmt(state.winner.offer.price)}/yr · ${state.winner.offer.termMonths} mo · total $${fmt(state.winner.tcv)} · ${esc(state.po)}</div>
          ${state.tenant ? `<a href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${inv?.url ? `<a href="${esc(inv.url)}" target="_blank">Stripe invoice →</a>` : ""}`
-      : `<b class="big" style="color:var(--amber)">No deal</b><div style="margin-top:6px;color:#cfcfcf">No vendor fit inside the buyer's charter, so the agents walked away.</div>`;
+      : `<b class="big" style="color:var(--amber)">No deal</b><div style="margin-top:6px;color:var(--muted)">No vendor fit inside the buyer's charter, so the agents walked away.</div>`;
   }
 }
 function showTab(t) { $("#tFocus").classList.toggle("active", t === "focus"); $("#tLog").classList.toggle("active", t === "log"); $("#focus").classList.toggle("hidden", t !== "focus"); $("#log").classList.toggle("hidden", t !== "log"); }
 $("#tFocus").onclick = () => showTab("focus"); $("#tLog").onclick = () => showTab("log");
-$("#yes").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method:"POST", headers:{ "content-type":"application/json" }, body:'{"approve":true}' });
-$("#no").onclick = () => fetch(`/api/deals/${dealId}/approve`, { method:"POST", headers:{ "content-type":"application/json" }, body:'{"approve":false}' });
 setInterval(() => { if (!state) return; const s = Math.max(0, Math.round(((state.finishedAt || Date.now()) - state.startedAt) / 1000)); $("#clock").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }, 250);
 
 async function load() {

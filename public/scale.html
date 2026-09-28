@@ -6,19 +6,20 @@
 <title>Deal Room · Scale</title>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.34.3/dist/cytoscape.min.js"></script>
 <style>
-:root { --line:#1f1f1f; --line2:#2c2c2c; --text:#f2f2f2; --muted:#8a8a8a; }
+:root { --bg:#000; --line:#1f1f1f; --line2:#2c2c2c; --text:#f2f2f2; --muted:#8a8a8a; --note:rgba(0,0,0,.8); }
+:root[data-theme="light"] { --bg:#fff; --line:#e8e8e8; --line2:#d6d6d6; --text:#111; --muted:#666; --note:rgba(255,255,255,.92); }
 * { box-sizing:border-box; }
-html, body { margin:0; height:100%; background:#000; color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
 body { display:grid; grid-template-rows:auto 1fr; }
 header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 header b { font-size:16px; } .sim { font-size:10.5px; letter-spacing:.8px; border:1px solid #f5b700; color:#f5b700; padding:3px 8px; border-radius:4px; }
-button { background:var(--text); color:#000; border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
+button { background:var(--text); color:var(--bg); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
 button.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
 a { color:var(--text); font-size:12.5px; }
 .stats { margin-left:auto; display:flex; gap:18px; font-variant-numeric:tabular-nums; }
 .stats div { text-align:right; } .stats b { font-size:20px; display:block; } .stats span { color:var(--muted); font-size:11px; }
 .stage { position:relative; } #cy { position:absolute; inset:0; }
-.note { position:absolute; left:16px; bottom:14px; color:var(--muted); font-size:12px; max-width:640px; background:rgba(0,0,0,.8); padding:8px 10px; border:1px solid var(--line2); border-radius:8px; }
+.note { position:absolute; left:16px; bottom:14px; color:var(--muted); font-size:12px; max-width:640px; background:var(--note); padding:8px 10px; border:1px solid var(--line2); border-radius:8px; }
 </style>
 </head>
 <body>
@@ -28,6 +29,7 @@ a { color:var(--text); font-size:12.5px; }
   <button class="ghost" id="shrink">Back one level</button>
   <button class="ghost" id="vendors">+ vendor</button>
   <button class="ghost" id="pause">Pause traffic</button>
+  <button class="ghost" id="theme" type="button" title="Toggle light / dark">◐</button>
   <a href="/">← live deal</a>
   <div class="stats">
     <div><b id="nAgents">0</b><span>agents</span></div>
@@ -41,17 +43,18 @@ a { color:var(--text); font-size:12.5px; }
   <div class="note">Synthetic agents showing how the same chain of command scales: orchestrator → departments → teams → specialists. The live deal runs 11 real agents; this view shows the architecture at thousands.</div>
 </div>
 <script type="module">
-import { STYLE, buildElements, setPose, sendPacket, coneLayout } from "/graph.js";
+import { buildStyle, buildElements, setPose, sendPacket, coneLayout, applyTheme, getTheme, theme } from "/graph.js";
 const $ = (s) => document.querySelector(s);
 
-const cy = cytoscape({ container: $("#cy"), wheelSensitivity: 0.25, minZoom: 0.02, maxZoom: 3, style: [
-  ...STYLE,
+applyTheme(getTheme());
+const extraStyle = () => [
   { selector: "node.agent.mini", style: { "width":12, "height":18, "font-size":8, "text-margin-y":3, "min-zoomed-font-size":10 } },
   { selector: "node.agent.micro", style: { "width":7, "height":10, "label":"", "min-zoomed-font-size":99 } },
-  { selector: "edge.reports", style: { "curve-style":"haystack", "haystack-radius":0, "width":0.8, "line-color":"#2f2f2f" } },
-  { selector: "node.coname", style: { "background-opacity":0, "border-width":0, "width":1, "height":1, "label":"data(label)", "color":"#e8e8e8", "font-size":22, "font-weight":700, "text-valign":"center", "events":"no" } },
-  { selector: "node.lvl", style: { "background-opacity":0, "border-width":0, "width":1, "height":1, "label":"data(label)", "color":"#5c5c5c", "font-size":13, "text-valign":"center", "events":"no" } },
-]});
+  { selector: "edge.reports", style: { "curve-style":"haystack", "haystack-radius":0, "width":0.8, "line-color":theme().reports } },
+  { selector: "node.coname", style: { "background-opacity":0, "border-width":0, "width":1, "height":1, "label":"data(label)", "color":theme().strong, "font-size":22, "font-weight":700, "text-valign":"center", "events":"no" } },
+];
+const cy = cytoscape({ container: $("#cy"), wheelSensitivity: 0.25, minZoom: 0.02, maxZoom: 3, style: buildStyle(extraStyle()) });
+$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"); cy.style(buildStyle(extraStyle())); };
 window.cy = cy;
 
 // Department and team names so the tree reads like a real enterprise
@@ -92,7 +95,6 @@ function company(name, buyer, maxDepth) {
       }
     });
   });
-  if (buyer) members.push({ id: `${key}.cfo`, role: "CFO", human: true, oversees: `${key}.orch` });
   return { name, buyer, members };
 }
 function world() {
@@ -122,18 +124,11 @@ function render(animate) {
   $("#depth").textContent = ["L1 departments", "L1 departments", "L2 teams", "L3 specialists", "L4 sub-specialists"][depth];
 }
 function buildElementsWith(companies, opts) {
-  const els = buildElements(companies, (m) => m.human ? "CFO (human)" : m.role).filter((e) => !(e.group === "nodes" && e.classes === "company"));
-  const { pos, levels, anchors } = coneLayout(companies, opts);
-  const byId = new Map(companies.flatMap((c) => c.members).map((m) => [m.id, m]));
-  for (const e of els) {
-    if (e.group !== "nodes" || !byId.has(e.data.id)) continue;
-    const m = byId.get(e.data.id);
-    delete e.data.parent;
-    e.position = pos[m.id];
-    e.data.level = levels[m.id];
-    e.data.boss = m.reportsTo || m.oversees;
-    if (m.cls) e.classes += " " + m.cls;
-  }
+  const built = buildElements(companies, (m) => m.role, coneLayout, opts);
+  const anchors = built.anchors;
+  // no company boxes in the scale view: cones point in different directions
+  const els = built.els.filter((e) => !(e.group === "nodes" && e.classes === "company"));
+  for (const e of els) if (e.group === "nodes") delete e.data.parent;
   for (const c of companies) {
     const a = anchors[c.name];
     els.push({ group: "nodes", data: { id: "name:" + c.name, label: c.name + (c.buyer ? " · buyer" : "") }, position: { x: a.x - Math.cos(a.axis) * 150, y: a.y - Math.sin(a.axis) * 150 - 30 }, classes: "coname" });
@@ -146,7 +141,7 @@ function tick() {
   if (paused) return;
   frame++;
   const agents = cy.nodes(".agent");
-  const withBoss = agents.filter((n) => n.data("boss") && !n.id().endsWith(".cfo"));
+  const withBoss = agents.filter((n) => n.data("boss"));
   const n = Math.min(14, 2 + Math.floor(withBoss.length / 120));
   for (let i = 0; i < n; i++) {
     const node = withBoss[Math.floor(Math.random() * withBoss.length)]; if (!node) break;

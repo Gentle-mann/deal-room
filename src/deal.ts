@@ -45,10 +45,9 @@ export type DealState = {
   buyer: string;
   agents: Record<string, AgentState>;
   profiles: Record<string, Profile>;
-  humans: { id: string; company: string; role: string; oversees: string }[];
   events: Ev[];
   tracks: Record<string, Track>;
-  approval?: { question: string; status: "pending" | "approved" | "denied"; by?: string };
+  approval?: { question: string; status: "approved" | "denied"; by: string; reason?: string };
   winner?: { key: string; name: string; offer: Offer; rationale: string; tcv: number };
   po?: string;
   invoice?: { id: string; number?: string; status: string; amount: number; url?: string; live: boolean; vendor?: string; dueDays?: number; sentAt?: number; paidAt?: number; simulated?: boolean };
@@ -76,7 +75,7 @@ export class DealRoom extends DurableObject<Env> {
     }
     const tracks: Record<string, Track> = {};
     for (const v of VENDORS) tracks[v.key] = { key: v.key, name: v.name, legalFlags: [], rounds: 0, history: [] };
-    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), humans: [{ id: "human.cfo", company: BUYER.name, role: "CFO", oversees: "acme.orchestrator" }], events: [], tracks };
+    this.d = { id, startedAt: Date.now(), stage: 0, stages: STAGES, limits, buyer: BUYER.name, agents, profiles: profiles(limits.budget), events: [], tracks };
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + 50);
     return { ok: true };
@@ -87,15 +86,6 @@ export class DealRoom extends DurableObject<Env> {
     return this.d ?? null;
   }
 
-  async decide(approve: boolean) {
-    const d = await this.getState();
-    if (!d?.approval || d.approval.status !== "pending") return { ok: false };
-    d.approval.status = approve ? "approved" : "denied";
-    d.approval.by = "Human CFO (phone)";
-    this.ev(BUYER.name, approve ? "win" : "block", `CFO ${approve ? "APPROVED" : "DENIED"} on phone: ${d.approval.question}`, "human.cfo", "acme.finance", approve ? "approve" : "deny");
-    await this.save();
-    return { ok: true };
-  }
 
   async alarm() {
     const d = await this.getState();
@@ -293,7 +283,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     this.ev(BUYER.name, "win", `Award: ${winner.name}. ${d.winner.rationale}`, "acme.orchestrator", winner.agents[0].id, "award");
     for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.procurement", v.agents[0].id, "debrief");
 
-    // 7. Approvals: CFO sign-off above threshold (human, on phone) while the winning vendor confirms (Brainbase), in parallel
+    // 7. Approvals go up the chain of command, not to a human: finance escalates to the orchestrator,
+    //    while the winning vendor's orchestrator countersigns in parallel (both on Brainbase).
     await this.stage(6);
     const vOrch = winner.agents.find((a) => a.platform === "Brainbase")!;
     const confirm = this.work(
@@ -308,24 +299,40 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
     );
     let approved = true;
-    if (tcv > BUYER.cfoApprovalOverTcv) {
-      d.approval = { question: `Approve ${winner.name} at $${fmt(wo.price)}/yr, total $${fmt(tcv)} over ${wo.termMonths} months?`, status: "pending" };
-      this.ev(BUYER.name, "escalate", `Total contract value $${fmt(tcv)} exceeds the $${fmt(BUYER.cfoApprovalOverTcv)} delegated limit. Escalated to the human CFO.`, "acme.finance", "human.cfo", "escalate");
+    if (tcv > BUYER.financeAuthorityTcv) {
+      const question = `Approve ${winner.name} at $${fmt(wo.price)}/yr, total $${fmt(tcv)} over ${wo.termMonths} months?`;
+      this.ev(BUYER.name, "escalate", `Total contract value $${fmt(tcv)} exceeds Finance's $${fmt(BUYER.financeAuthorityTcv)} authority. Escalated up the chain of command to the orchestrator.`, "acme.finance", "acme.orchestrator", "escalate");
       await this.save();
-      const until = Date.now() + 240_000;
-      while (d.approval.status === "pending" && Date.now() < until) await new Promise((r) => setTimeout(r, 1000));
-      if (d.approval.status === "pending") {
-        d.approval.status = "approved";
-        d.approval.by = "timeout (demo mode)";
-        this.ev(BUYER.name, "info", "No CFO response in 4 minutes; demo mode continues.", "acme.finance");
+      const ruling = await this.work(
+        "acme.orchestrator",
+        () =>
+          brainbaseDecide(env, {
+            title: "Acme approval",
+            model: this.agent("acme.orchestrator").model,
+            instructions: `You are Acme Corp's chief deal orchestrator, the top of Acme's chain of command for software purchases. Your delegated authority: approve contracts up to $${fmt(BUYER.orchestratorAuthorityTcv)} total contract value, provided every red line is met (${BUYER.redLines.join("; ")}). Acme's finance agent has escalated an approval request to you. Reply with one sentence, then JSON {"approve":true|false,"reason":"..."}.`,
+            input: `${question} Terms: ${this.offerText(wo)}. Security review: grade ${d.tracks[winner.key].security?.grade ?? "?"}. Legal flags: ${d.tracks[winner.key].legalFlags.join("; ") || "none"}.`,
+          }),
+        (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
+      );
+      if (ruling.via === "fallback") this.agent("acme.orchestrator").status = "fallback";
+      const j = extractJson<{ approve?: boolean; reason?: string }>(ruling.text);
+      let ok = j?.approve !== false;
+      let reason = j?.reason ?? "Within delegated authority and every red line is met.";
+      // Code, not the model, enforces the orchestrator's own limit
+      if (tcv > BUYER.orchestratorAuthorityTcv) {
+        ok = false;
+        reason = `Total $${fmt(tcv)} exceeds the orchestrator's $${fmt(BUYER.orchestratorAuthorityTcv)} authority.`;
+        this.ev(BUYER.name, "block", `Charter check: ${reason}`, "acme.orchestrator", "acme.orchestrator", "block");
       }
-      approved = d.approval.status === "approved";
+      d.approval = { question, status: ok ? "approved" : "denied", by: "Acme orchestrator", reason };
+      this.ev(BUYER.name, ok ? "win" : "block", `Orchestrator ${ok ? "approved" : "denied"}: ${reason}`, "acme.orchestrator", "acme.finance", ok ? "approve" : "deny");
+      approved = ok;
     }
     const conf = await confirm;
     if (conf.via === "fallback") this.agent(vOrch.id).status = "fallback";
     this.ev(winner.name, "win", `Countersigned by ${winner.name}'s orchestrator.`, vOrch.id, "acme.orchestrator", "signature");
     if (!approved) {
-      this.ev(BUYER.name, "block", "CFO denied the award. Deal stopped.", "acme.finance");
+      this.ev(BUYER.name, "block", "The orchestrator denied the award. Deal stopped.", "acme.orchestrator");
       await this.finish();
       return;
     }
@@ -495,11 +502,11 @@ function env(o: DealRoom): Env {
 
 function profiles(budget: number): Record<string, Profile> {
   const p: Record<string, Profile> = {
-    "acme.orchestrator": { job: "Runs Acme's side of the deal: sends the RFP and awards the winner.", can: ["Award any vendor that meets every red line"], ask: [`CFO sign-off when total contract value exceeds $${fmt(BUYER.cfoApprovalOverTcv)}`], prove: ["Award rationale citing security grade, legal flags and price"] },
+    "acme.orchestrator": { job: "Top of Acme's chain of command: sends the RFP, awards the winner, approves what Finance escalates.", can: ["Award any vendor that meets every red line", `Approve contracts up to $${fmt(BUYER.orchestratorAuthorityTcv)} total`], ask: ["Nothing: anything above its authority is blocked in code"], prove: ["Award and approval rationale citing security grade, legal flags and price"] },
     "acme.procurement": { job: "Negotiates price and terms with every vendor in parallel.", can: [`Agree up to $${fmt(budget)}/yr (private budget)`, `Require net ${BUYER.minPaymentDays}+ payment terms`], ask: ["Anything over budget"], prove: ["Every counter and reply is logged"] },
     "acme.security": { job: "Grades each vendor's security questionnaire.", can: ["Pass or fail vendors against Acme's must-haves"], ask: ["Any exception to a must-have"], prove: ["Vendor answers must cite their trust pack"] },
     "acme.legal": { job: "Reviews contract fine print against Acme's red lines.", can: ["Eliminate a vendor that breaks a red line"], ask: ["Any red-line waiver"], prove: ["Quotes the exact contract section"] },
-    "acme.finance": { job: "Approvals, fraud checks, purchase order, and paying the invoice.", can: ["Pay invoices that match the PO and order form", "Take early-payment discounts"], ask: [`Deals over $${fmt(BUYER.cfoApprovalOverTcv)} total go to the human CFO`], prove: ["Three-way match: PO = order form = invoice", "Bank details match the verified account"] },
+    "acme.finance": { job: "Approvals, fraud checks, purchase order, and paying the invoice.", can: ["Pay invoices that match the PO and order form", "Take early-payment discounts"], ask: [`Deals over $${fmt(BUYER.financeAuthorityTcv)} total go up to the orchestrator`], prove: ["Three-way match: PO = order form = invoice", "Bank details match the verified account"] },
   };
   for (const v of VENDORS) {
     for (const a of v.agents) {
@@ -508,6 +515,5 @@ function profiles(budget: number): Record<string, Profile> {
       else p[a.id] = { job: `${v.name}'s trust team: answers security questionnaires and defends contract terms.`, can: ["Answer only from the trust pack"], ask: ["Anything the trust pack does not cover"], prove: ["Every answer cites a trust-pack source ID"] };
     }
   }
-  p["human.cfo"] = { job: "Acme's human CFO. Only sees exceptions.", can: ["Approve or deny from their phone"], ask: [], prove: [] };
   return p;
 }
