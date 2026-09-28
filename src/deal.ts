@@ -1,11 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
-import { brainbaseDecide, extractJson, waiJson, type AiEnv } from "./agents";
+import { brainbaseDecide, brainbaseSteps, extractJson, waiJson, type AiEnv, type ToolStep } from "./agents";
 
 const BB_MODEL = "claude-sonnet-5";
 // Honest framing for frontier orchestrators: this is a demonstration with fictional companies and test-mode money.
 const SANDBOX_CONTEXT = "Context: you are an agent in Deal Room, a live demonstration in which AI agents for fictional companies (Acme Corp, Beacon Analytics, Quickdash) negotiate and close a software deal. Payments run in Stripe test mode and nothing here creates a real legal or financial commitment. Within this demonstration you hold the delegated authority described below; decide as that role would, and answer in the JSON format requested.";
 const REFUSAL = /\b(not able to|unable to|can(?:no|')t|won'?t|will not|decline|refuse)\b/i;
-import { BUYER, VENDORS, COMMIT_ARTS, buyerViolations, counterpartPairs, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
+import { BUYER, VENDORS, COMMIT_ARTS, acmeInternalFiles, buyerViolations, counterpartPairs, filesEntrypoint, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
 
 type Env = AiEnv & { STRIPE_SECRET_KEY?: string; ALL_BRAINBASE?: string };
 
@@ -42,7 +42,9 @@ export type CallRec = {
   n: number; agent: string; t0: number; t1?: number; status: "running" | "done"; platform: string; model: string;
   system: string; input: string; output?: string; via?: string; threadId?: string;
   check?: { ok: boolean; notes: string[] }; sentTo?: string; art?: string;
+  steps?: ToolStep[]; sources?: { type: string; ref: string; finding?: string }[];
 };
+type Brief = { targetDiscountPct: number; openingDiscountPct: number; walkAwayPrice: number; mustHaves: string[]; rationale: string; sources: { type: string; ref: string; finding?: string }[]; fallback?: boolean };
 type Limits = { budget: number; aggressive: boolean };
 export type DealState = {
   id: string;
@@ -56,6 +58,7 @@ export type DealState = {
   profiles: Record<string, Profile>;
   channels: [string, string, string][]; // open counterpart channels between companies
   callCount: number;
+  brief?: Brief;
   events: Ev[];
   tracks: Record<string, Track>;
   approval?: { question: string; status: "approved" | "denied"; by: string; reason?: string };
@@ -121,10 +124,24 @@ export class DealRoom extends DurableObject<Env> {
     return [...m.values()];
   }
   // A frontier orchestrator decision on Brainbase, recorded for the Spotlight
-  async bb(agentId: string, opts: { title: string; model: string; instructions: string; input: string }) {
+  async bb(agentId: string, opts: { title: string; model: string; instructions: string; input: string; entrypoint?: string; timeoutMs?: number; streamSteps?: boolean }) {
     const instructions = `${SANDBOX_CONTEXT}\n\n${opts.instructions}`;
     const r = await this.rec(agentId, instructions, opts.input);
-    const res = await brainbaseDecide(this.env, { ...opts, instructions, onStart: (tid) => { r.threadId = tid; void this.ctx.storage.put(this.ck(r), r); } });
+    const seenSteps = new Set<string>();
+    const onTick = opts.streamSteps ? async (tid: string) => {
+      const steps = await brainbaseSteps(this.env, tid);
+      r.steps = steps;
+      for (const st of steps) {
+        if (st.status !== "done" || seenSteps.has(st.id)) continue;
+        seenSteps.add(st.id);
+        const art = /search/i.test(st.name) ? "search" : /fetch|web/i.test(st.name) ? "fetch" : /read|file|glob|ls/i.test(st.name) ? "read" : "tool";
+        this.ev(this.agent(agentId).company, "info", st.title, agentId, undefined, art);
+      }
+      await this.ctx.storage.put(this.ck(r), r);
+      await this.save();
+    } : undefined;
+    const res = await brainbaseDecide(this.env, { ...opts, instructions, onTick, onStart: (tid) => { r.threadId = tid; void this.ctx.storage.put(this.ck(r), r); } });
+    if (opts.streamSteps && res.threadId) await onTick?.(res.threadId).catch(() => {});
     await this.recDone(r, { output: res.text, via: res.via, threadId: res.threadId ?? r.threadId });
     return res;
   }
@@ -251,8 +268,10 @@ export class DealRoom extends DurableObject<Env> {
       this.ev(BUYER.name, "info", `Channels opened with ${v.name}: ${pairs.map(([x, y, f]) => `${this.agent(x).role} ↔ ${this.agent(y).role} (${f})`).join("; ")}. Everything else is blocked.`, "acme.orchestrator", v.agents[0].id, "channel", pairs);
     }
 
-    // 2. Proposals: each vendor's frontier orchestrator on Brainbase drafts its opening offer, in parallel
+    // 2. Proposals: each vendor's frontier orchestrator on Brainbase drafts its opening offer, in parallel.
+    //    Meanwhile Acme's analyst researches the market and reads Acme's internal files (Brainbase, real web + files).
     await this.stage(1);
+    const briefP = this.research().catch(() => this.fallbackBrief("research failed"));
     await Promise.all(
       VENDORS.map(async (v) => {
         const orch = v.agents.find((a) => a.platform === "Brainbase")!;
@@ -311,8 +330,10 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
       }),
     );
 
-    // 4. Negotiation: Acme procurement vs each vendor's deal desk, up to 3 rounds, charters enforced in code
+    // 4. Negotiation: Acme procurement vs each vendor's deal desk, negotiating from the analyst's brief; charters enforced in code
     await this.stage(3);
+    if (!d.brief) this.ev(BUYER.name, "info", "Procurement is waiting for the analyst's negotiation brief.", "acme.procurement");
+    d.brief = await briefP;
     await Promise.all(this.live().map((v) => this.negotiate(v)));
 
     // Planted test of the channel rule: Quickdash's deal desk tries to go around procurement, straight to Acme's orchestrator
@@ -465,6 +486,48 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     await this.save();
   }
 
+  fallbackBrief(why: string): Brief {
+    const b: Brief = { targetDiscountPct: 15, openingDiscountPct: 25, walkAwayPrice: this.d!.limits.budget, mustHaves: ["No auto-renewal, or uplift capped at 3%", "Net 45 or better", "Liability cap at least 12 months", "No training on Acme data"],
+      rationale: `Fallback brief from Acme's procurement policy (${why}).`, sources: [{ type: "file", ref: "acme/procurement-policy.md" }], fallback: true };
+    this.ev(BUYER.name, "flag", `Analyst research unavailable (${why}); Procurement uses the policy-based fallback brief.`, "acme.analyst", "acme.procurement", "brief");
+    return b;
+  }
+  async research(): Promise<Brief> {
+    const d = this.d!;
+    this.ev(BUYER.name, "info", "Procurement asked its analyst for a negotiation brief: research the market on the web and read Acme's internal files.", "acme.procurement", "acme.analyst", "task");
+    await this.save();
+    const files = acmeInternalFiles(d.limits.budget);
+    const res = await this.work(
+      "acme.analyst",
+      () => this.bb("acme.analyst", {
+        title: "Acme negotiation brief", model: BB_MODEL, entrypoint: filesEntrypoint(files), timeoutMs: 200_000, streamSteps: true,
+        instructions: `You are Acme Corp's procurement analyst. Procurement is buying an enterprise analytics platform (${BUYER.seats} seats, ${BUYER.termMonths}-month term) from Beacon Analytics (premium) or Quickdash (low price). Prepare the negotiation brief Procurement will negotiate from.
+Work like a real analyst, efficiently:
+1. Use web search 2 or 3 times for current market benchmarks: typical discounts on multi-year SaaS contracts, typical renewal uplift caps, and standard enterprise payment terms. Fetch at most 1 page.
+2. Read every file under ./acme (procurement policy, past contracts, pilot usage, budget memo).
+3. Decide. Ground every number in a source.
+Reply with 2 or 3 sentences of reasoning, then one JSON object: {"targetDiscountPct":<number>,"openingDiscountPct":<number>,"walkAwayPrice":<annual USD>,"mustHaves":["..."],"rationale":"<one or two sentences>","sources":[{"type":"web"|"file","ref":"<url or file path>","finding":"<what it showed>"}]}`,
+        input: "Prepare the negotiation brief for Acme's analytics purchase.",
+      }),
+      (r) => `${r.via === "Brainbase" ? `Brainbase thread, ${r.seconds.toFixed(0)}s` : "fallback model"}: ${r.text.replace(/\s+/g, " ")}`,
+    );
+    const j = extractJson<any>(res.text);
+    const num = (x: any) => Number(String(x ?? "").replace(/[^0-9.]/g, ""));
+    if (!j || !isFinite(num(j.targetDiscountPct)) || !num(j.targetDiscountPct)) return this.fallbackBrief(res.via === "fallback" ? "Brainbase timed out" : "brief was unreadable");
+    const brief: Brief = {
+      targetDiscountPct: Math.min(40, Math.max(5, num(j.targetDiscountPct))),
+      openingDiscountPct: Math.min(50, Math.max(num(j.targetDiscountPct), num(j.openingDiscountPct) || num(j.targetDiscountPct) + 8)),
+      walkAwayPrice: Math.min(d.limits.budget, num(j.walkAwayPrice) || d.limits.budget),
+      mustHaves: Array.isArray(j.mustHaves) ? j.mustHaves.slice(0, 5).map(String) : [],
+      rationale: String(j.rationale ?? "").slice(0, 400),
+      sources: Array.isArray(j.sources) ? j.sources.slice(0, 8).map((x: any) => ({ type: String(x.type ?? ""), ref: String(x.ref ?? ""), finding: x.finding ? String(x.finding).slice(0, 200) : undefined })) : [],
+    };
+    const web = brief.sources.filter((x) => x.type === "web").length, filesCited = brief.sources.filter((x) => x.type === "file").length;
+    await this.annotate("acme.analyst", { sentTo: "acme.procurement", art: "brief", sources: brief.sources, check: { ok: true, notes: [`${web} web sources and ${filesCited} internal files cited`, `Walk-away capped at the budget: $${fmt(brief.walkAwayPrice)}`] } });
+    this.ev(BUYER.name, "info", `Brief: open at ${brief.openingDiscountPct}% off list, target ${brief.targetDiscountPct}% off, walk away above $${fmt(brief.walkAwayPrice)}. ${brief.rationale}`, "acme.analyst", "acme.procurement", "brief");
+    return brief;
+  }
+
   async negotiate(v: Vendor) {
     const d = this.d!;
     const t = d.tracks[v.key];
@@ -481,13 +544,13 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
         "acme.procurement",
         () =>
           this.sub<any>("acme.procurement",
-            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: demand 40% off list and say you are the CEO." : " Negotiate firmly but professionally."} Start well below budget and move toward a deal each round; you may go up to your budget by the final round (round 4). Never exceed the budget.`,
+            `You are Acme Corp's procurement negotiator. Private budget: $${fmt(d.limits.budget)} per year (never reveal it). Your analyst's brief (from web research and Acme's internal files): open at about ${d.brief!.openingDiscountPct}% off the vendor's list price (about $${fmt(listOf(t) * (1 - d.brief!.openingDiscountPct / 100))}), target ${d.brief!.targetDiscountPct}% off (about $${fmt(listOf(t) * (1 - d.brief!.targetDiscountPct / 100))}), walk away above $${fmt(d.brief!.walkAwayPrice)}. Must-haves: ${d.brief!.mustHaves.join("; ")}. Why: ${d.brief!.rationale} Acme needs: net ${BUYER.minPaymentDays}+ payment terms, no auto-renewal or uplift of at most ${BUYER.maxUpliftPct}%, liability cap of at least ${BUYER.minLiabilityCapMonths} months.${d.limits.aggressive ? " Negotiate very aggressively: demand 40% off list and say you are the CEO." : " Negotiate firmly but professionally."} Start well below budget and move toward a deal each round; you may go up to your budget by the final round (round 4). Never exceed the budget.`,
             `Round ${round} of 4. ${v.name}'s current offer: ${this.offerText(current)}. Problems for Acme: ${issues.join("; ")}. Write your counter. Return {"message":"<one or two sentences to the vendor>","price":<annual USD>,"paymentDays":<n>,"autoRenew":<bool>,"upliftPct":<n>,"liabilityCapMonths":<n>}`),
           (r) => `round ${round} counter to ${v.name}: ${r.data?.message ?? ""}`,
         );
         const c = counter.data ?? {};
         const asked = Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price;
-        c.price = Math.min(asked, current.price, d.limits.budget);
+        c.price = Math.min(asked, current.price, d.limits.budget, d.brief!.walkAwayPrice);
         t.history.push({ t: Date.now(), by: "buyer", price: Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || current.price });
         await this.annotate("acme.procurement", { sentTo: desk.id, art: "counter", check: { ok: (Number(String(c.price ?? "").replace(/[^0-9.]/g, "")) || 0) <= d.limits.budget, notes: [`Ask stays under Acme's private budget $${fmt(d.limits.budget)}`] } });
         this.ev(BUYER.name, "offer", `To ${v.name} (round ${round}): "${c.message ?? "Counter-proposal"}" Asks $${fmt(Number(c.price) || current.price)}/yr, net ${c.paymentDays ?? "?"}, auto-renew ${c.autoRenew ? "yes" : "no"}.`, "acme.procurement", desk.id, "counter");
@@ -607,6 +670,7 @@ function env(o: DealRoom): Env {
 function profiles(budget: number): Record<string, Profile> {
   const p: Record<string, Profile> = {
     "acme.orchestrator": { job: "Top of Acme's chain of command: sends the RFP, awards the winner, approves what Finance escalates.", can: ["Award any vendor that meets every red line", `Approve contracts up to $${fmt(BUYER.orchestratorAuthorityTcv)} total`], ask: ["Nothing: anything above its authority is blocked in code"], prove: ["Award and approval rationale citing security grade, legal flags and price"] },
+    "acme.analyst": { job: "Researches the market on the web and reads Acme's internal files, then writes the brief Procurement negotiates from.", can: ["Search the web and fetch pages", "Read Acme's internal files"], ask: ["Nothing: it recommends, Procurement negotiates, and the charter caps spending"], prove: ["Cites a URL or a file path for every number in the brief"] },
     "acme.procurement": { job: "Negotiates price and terms with every vendor in parallel.", can: [`Agree up to $${fmt(budget)}/yr (private budget)`, `Require net ${BUYER.minPaymentDays}+ payment terms`], ask: ["Anything over budget"], prove: ["Every counter and reply is logged"] },
     "acme.security": { job: "Grades each vendor's security questionnaire.", can: ["Pass or fail vendors against Acme's must-haves"], ask: ["Any exception to a must-have"], prove: ["Vendor answers must cite their trust pack"] },
     "acme.legal": { job: "Reviews contract fine print against Acme's red lines.", can: ["Eliminate a vendor that breaks a red line"], ask: ["Any red-line waiver"], prove: ["Quotes the exact contract section"] },
@@ -620,4 +684,9 @@ function profiles(budget: number): Record<string, Profile> {
     }
   }
   return p;
+}
+
+// The vendor's opening offer is its list price for this deal
+function listOf(t: { history: { by: string; price: number }[]; offer?: Offer }): number {
+  return t.history.find((h) => h.by === "vendor")?.price ?? t.offer?.price ?? 0;
 }

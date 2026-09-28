@@ -48,7 +48,7 @@ export async function waiJson<T = any>(env: AiEnv, model: string, system: string
 // Falls back to a Workers AI model if Brainbase is off, fails, or is too slow, so the live demo never stalls.
 export async function brainbaseDecide(
   env: AiEnv,
-  opts: { title: string; instructions: string; input: string; model: string; timeoutMs?: number; onStart?: (threadId: string) => void },
+  opts: { title: string; instructions: string; input: string; model: string; timeoutMs?: number; entrypoint?: string; onStart?: (threadId: string) => void; onTick?: (threadId: string) => Promise<void> },
 ): Promise<{ text: string; via: "Brainbase" | "fallback"; threadId?: string; seconds: number }> {
   const t0 = Date.now();
   const fallback = async () => {
@@ -64,7 +64,7 @@ export async function brainbaseDecide(
       method: "POST",
       headers: H,
       body: JSON.stringify({
-        agent: { harness: "claude_code", model: opts.model, machine_kind: "cloudflare", title: opts.title, instructions: opts.instructions },
+        agent: { harness: "claude_code", model: opts.model, machine_kind: "cloudflare", title: opts.title, instructions: opts.instructions, ...(opts.entrypoint ? { entrypoint: opts.entrypoint } : {}) },
         input: opts.input,
       }),
     });
@@ -75,6 +75,7 @@ export async function brainbaseDecide(
     const deadline = t0 + (opts.timeoutMs ?? 150_000);
     while (Date.now() < deadline) {
       await sleep(2500);
+      if (opts.onTick) await opts.onTick(id).catch(() => {});
       const s: any = await fetch(`${BB}/threads/${id}`, { headers: H }).then((r) => r.json()).catch(() => ({}));
       if (s.status === "fail") break;
       if (s.status === "running") continue;
@@ -90,4 +91,24 @@ export async function brainbaseDecide(
   } catch {
     return fallback();
   }
+}
+
+// The tool calls a Brainbase agent has made so far (web searches, page fetches, file reads), for the Spotlight
+export type ToolStep = { id: string; name: string; title: string; status: "running" | "done"; t: number; ms?: number };
+export async function brainbaseSteps(env: AiEnv, threadId: string): Promise<ToolStep[]> {
+  const r: any = await fetch(`${BB}/threads/${threadId}/events?limit=200`, { headers: { Authorization: `Bearer ${env.BRAINBASE_API_KEY}` } }).then((x) => x.json()).catch(() => ({}));
+  const steps = new Map<string, ToolStep>();
+  for (const e of r.items ?? []) {
+    if (!e.tool_id || !/^tool_call\./.test(e.type)) continue;
+    const cur = steps.get(e.tool_id) ?? { id: e.tool_id, name: e.data?.name ?? "Tool", title: e.data?.name ?? "Tool", status: "running" as const, t: Date.parse(e.started_at || e.ts) || Date.now() };
+    if (e.data?.title) cur.title = e.data.title;
+    if (e.type === "tool_call.end") {
+      cur.status = "done";
+      const a = e.data?.args ?? {};
+      if (!e.data?.title) cur.title = a.query ? `Search "${a.query}"` : a.url ? `Fetch ${a.url}` : a.file_path ? `Read ${String(a.file_path).replace("/workspace/", "")}` : cur.title;
+      const t1 = Date.parse(e.ended_at || e.ts); if (t1) cur.ms = Math.max(0, t1 - cur.t);
+    }
+    steps.set(e.tool_id, cur);
+  }
+  return [...steps.values()].sort((a, b) => a.t - b.t);
 }

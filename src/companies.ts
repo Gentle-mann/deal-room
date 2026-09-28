@@ -81,6 +81,7 @@ export const BUYER: Buyer = {
   orchestratorAuthorityTcv: 500_000,
   agents: [
     { id: "acme.orchestrator", role: "Chief deal orchestrator", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase" },
+    { id: "acme.analyst", reportsTo: "acme.procurement", role: "Procurement analyst", platform: "Brainbase", model: BB, label: "Claude Sonnet 5 on Brainbase · web + files" },
     { id: "acme.procurement", reportsTo: "acme.orchestrator", functions: ["commercial"], role: "Procurement", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
     { id: "acme.security", reportsTo: "acme.orchestrator", functions: ["security"], role: "Security & privacy", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
     { id: "acme.legal", reportsTo: "acme.orchestrator", functions: ["legal"], role: "Legal", platform: "Workers AI", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B (open)" },
@@ -205,4 +206,31 @@ export function counterpartPairs(buyerAgents: AgentDef[], vendorAgents: AgentDef
     if (shared.length) pairs.push([b.id, v.id, shared.join(" + ")]);
   }
   return pairs;
+}
+
+// Acme's internal files (sample data), written into the analyst's sandbox so it can read them like a real employee would
+export function acmeInternalFiles(budget: number): Record<string, string> {
+  return {
+    "acme/procurement-policy.md": `# Acme Corp procurement policy: software (internal, sample data)
+- Multi-year (24+ month) SaaS commitments must target at least 15% off list price.
+- Never accept auto-renewal with a renewal uplift above 3%. Prefer no auto-renewal.
+- Payment terms: net 45 minimum, net 60 preferred. Take early-payment discounts when cash allows.
+- Liability cap: at least 12 months of fees; a data-breach super-cap is preferred.
+- Vendors may not train models on Acme data.
+- Anything above 90% of the approved budget must be approved by the orchestrator.`,
+    "acme/contracts/past-analytics-contracts.csv": `year,vendor,product,seats,term_months,list_per_year,paid_per_year,discount_pct,uplift_cap_pct,payment_terms
+2023,Harbor BI,dashboards,180,12,96000,84480,12,5,net 30
+2024,Larkspur Analytics,enterprise analytics,220,24,132000,105600,20,3,net 45
+2025,Vesta Metrics,self-serve BI,150,12,70000,61600,12,none,net 60`,
+    "acme/pilot-usage.md": `# Analytics pilot usage (internal, sample data)
+Licensed pilot seats: 250 over a 6-week pilot.
+Weekly active analysts: 212 (85% of seats). EU-based analysts: 64, so EU data residency is required.
+Forecast: about 10% more analysts next fiscal year.`,
+    "acme/budget-memo-fy27.md": `# FY27 analytics budget (from the CFO, internal, sample data)
+Ceiling: $${fmt(budget)} per year for the enterprise analytics platform. A 24-month commitment is preferred.
+Anything above 90% of the ceiling needs the orchestrator's sign-off. Cash position is strong: capture early-payment discounts.`,
+  };
+}
+export function filesEntrypoint(files: Record<string, string>): string {
+  return Object.entries(files).map(([p, c]) => `mkdir -p "$(dirname '${p}')" && cat > '${p}' <<'ACMEDOC'\n${c}\nACMEDOC`).join("\n");
 }

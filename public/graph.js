@@ -4,7 +4,7 @@
 // Packet and chip codes: short mono labels instead of emoji
 export const ART = { rfp:"RFP", proposal:"PROP", questionnaire:"SECQ", grade:"GRADE", counter:"CNTR", offer:"OFFER", redline:"REDLN", award:"AWARD", debrief:"DEBRF",
   escalate:"ESC", approve:"OK", deny:"DENY", signature:"SIGN", fraud:"FRAUD", po:"PO", invoice:"INV", payment:"PAY", provision:"PROV", eliminate:"ELIM", block:"BLOCK",
-  task:"TASK", result:"RSLT", channel:"LINK" };
+  task:"TASK", result:"RSLT", channel:"LINK", brief:"BRIEF", search:"SEARCH", fetch:"FETCH", read:"READ", tool:"TOOL" };
 export const code = (art) => ART[art] || "MSG";
 
 // ---------- theme: every color comes from tokens.css ----------
