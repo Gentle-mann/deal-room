@@ -103,6 +103,11 @@
 .nums b { display:block; font:700 22px/28px Inter,sans-serif; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
 .nums span { font:500 12px/16px Inter,sans-serif; color:var(--text-3); }
 .why { margin-top:12px; font:400 14px/21px Inter,sans-serif; color:var(--text); }
+.result { border:1px solid var(--green-line); background:var(--green-bg); border-radius:12px; padding:12px; opacity:0; transition:opacity 400ms var(--ease-out); }
+.result.in { opacity:1; }
+.result .nums div { background:var(--surface-2); }
+.result .got b { color:var(--green-text); }
+.result .why { margin-top:10px; }
 .impact { margin:12px 0 0; padding:0; list-style:none; display:grid; gap:6px; opacity:0; transition:opacity 400ms var(--ease-out); }
 .impact.in { opacity:1; }
 .impact li { font:500 14px/20px Inter,sans-serif; padding-left:18px; position:relative; }
@@ -496,7 +501,7 @@ function renderTakeover() {
       <div class="subline">vs. ${fmt(hc.total / 86400)} days for a human team</div>
       <div class="hero">${fmt(Math.round(hc.total / exact))}× faster</div>
       <div class="detail" style="margin-top:4px">Modeled from the ${hc.counted} interactions in this deal: ${fmt(hc.cum[6] / 86400)} days to signature (industry median ${MEDIAN_DAYS}, average ${BENCHMARK_DAYS})</div>
-      <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
+      <div class="detail">${esc(w.name)} · $${fmt(w.offer.price)}/yr${w.list ? ` (${Math.round((1 - w.offer.price / w.list) * 100)}% off the $${fmt(w.list)} list)` : ""} · ${w.offer.termMonths} mo · TCV $${fmt(w.tcv)} · ${esc(state.po || "")}</div>
       <div class="actions">${state.tenant ? `<a class="btn btn-primary" href="${esc(state.tenant.path)}" target="_blank">Open provisioned workspace →</a>` : ""}${state.invoice?.url ? `<a class="btn btn-ghost" href="${esc(state.invoice.url)}" target="_blank" rel="noopener">Stripe invoice →</a>` : ""}<button class="btn btn-ghost" id="viewGraph" type="button">View graph <kbd>Esc</kbd></button></div></div>`
     : `<div class="content"><div class="eyebrow">No deal</div><div class="headline">No deal</div>
       <div class="subline">${state.outcome === "stopped" ? "The deal stopped before signature. Every agent stayed inside its charter." : state.outcome === "walked" ? "No vendor fit inside the buyer's charter, so the agents walked away." : "The deal engine hit an error, so nothing was signed or paid."}</div>
@@ -613,6 +618,7 @@ const SNAP = {
   decision: [["28% off", "open at"], ["20% off", "target"], ["$120,000", "walk away above"]],
   why: "20% matches the proven 2024 Larkspur comparable (24 months, similar seat count) and sits mid-band of the 15–25% multi-year SaaS benchmark, above Acme's 15% policy floor. The walk-away is pinned to the CFO's hard $120K ceiling.",
   check: "2 web sources and 4 internal files cited · walk-away capped at the budget",
+  result: { list: 150000, price: 120000, paid: 117600, target: 20 },
   impact: ["Procurement negotiated from this brief", "Beacon Analytics agreed to $120,000/yr in round 1: exactly 20% off its $150,000 list price", "The deal closed in 5m 04s and the Stripe invoice was paid"],
 };
 let snapTimers = [];
@@ -630,7 +636,10 @@ function openSnapshot() {
           <div class="why">${esc(S.why)}</div>
           <div class="check ok"><span class="ic">✓</span><div><div class="ct">Charter check passed</div><div class="cn">${esc(S.check)}</div></div></div>
           <div class="sent">→ Sent to <b>Acme · Procurement</b> <span class="code">BRIEF</span></div></div>
-        <div class="lbl" style="margin-top:16px">What happened next</div><ul class="impact">${S.impact.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div class="lbl" style="margin-top:16px">What happened next</div>
+        <div class="result"><div class="nums"><div><span>list price</span><b>$${fmt(S.result.list)}</b></div><div><span>final price</span><b>$${fmt(S.result.price)}</b></div><div class="got"><span>discount won</span><b>${Math.round((1 - S.result.price / S.result.list) * 100)}% off</b></div></div>
+          <div class="why">Hit the ${S.result.target}% target exactly. With the 2% early-payment discount, Acme paid $${fmt(S.result.paid)} for year 1: ${((1 - S.result.paid / S.result.list) * 100).toFixed(1)}% off list.</div></div>
+        <ul class="impact">${S.impact.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
     </div>
     <div class="snapfoot">Recorded from a real production run: every step above is a real tool call the agent made on Brainbase.</div></div>`;
   el.classList.remove("hidden");
@@ -640,8 +649,8 @@ function openSnapshot() {
 }
 function playSnapshot() {
   snapTimers.forEach(clearTimeout); snapTimers = [];
-  const items = [...document.querySelectorAll("#snap .tl li")], dec = $("#snap .decide"), imp = $("#snap .impact");
-  items.forEach((li) => { li.className = ""; li.querySelector(".ms").textContent = ""; }); dec.classList.remove("in"); imp.classList.remove("in");
+  const items = [...document.querySelectorAll("#snap .tl li")], dec = $("#snap .decide"), imp = $("#snap .impact"), res = $("#snap .result");
+  items.forEach((li) => { li.className = ""; li.querySelector(".ms").textContent = ""; }); dec.classList.remove("in"); imp.classList.remove("in"); res.classList.remove("in");
   let t = 400;
   SNAP.steps.forEach((st, i) => {
     const li = items[i];
@@ -650,7 +659,7 @@ function playSnapshot() {
     snapTimers.push(setTimeout(() => { li.className = "in done"; li.querySelector(".ms").textContent = (st.ms / 1000).toFixed(1) + "s"; }, t));
   });
   snapTimers.push(setTimeout(() => dec.classList.add("in"), t + 400));
-  snapTimers.push(setTimeout(() => imp.classList.add("in"), t + 1600));
+  snapTimers.push(setTimeout(() => { imp.classList.add("in"); res.classList.add("in"); }, t + 1600));
 }
 function closeSnapshot() { snapTimers.forEach(clearTimeout); $("#snap").classList.add("hidden"); }
 $("#snapBtn").onclick = openSnapshot;

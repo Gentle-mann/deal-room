@@ -62,7 +62,7 @@ export type DealState = {
   events: Ev[];
   tracks: Record<string, Track>;
   approval?: { question: string; status: "approved" | "denied"; by: string; reason?: string };
-  winner?: { key: string; name: string; offer: Offer; rationale: string; tcv: number };
+  winner?: { key: string; name: string; offer: Offer; rationale: string; tcv: number; list?: number };
   po?: string;
   invoice?: { id: string; number?: string; status: string; amount: number; url?: string; live: boolean; vendor?: string; dueDays?: number; sentAt?: number; paidAt?: number; simulated?: boolean };
   tenant?: { path: string; at: number };
@@ -393,7 +393,7 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     }
     const wo = d.tracks[winner.key].offer!;
     const tcv = Math.round((wo.price * wo.termMonths) / 12);
-    d.winner = { key: winner.key, name: winner.name, offer: wo, rationale: pick?.rationale ?? award.text.slice(0, 200), tcv };
+    d.winner = { key: winner.key, name: winner.name, offer: wo, rationale: pick?.rationale ?? award.text.slice(0, 200), tcv, list: winner.listPrice };
     this.ev(BUYER.name, "win", `Award: ${winner.name}. ${d.winner.rationale}`, "acme.orchestrator", winner.agents[0].id, "award");
     await this.annotate("acme.orchestrator", { sentTo: winner.agents[0].id, art: "award", check: { ok: true, notes: [`${winner.name} is within every red line and the $${fmt(d.limits.budget)} budget`] } });
     for (const v of VENDORS.filter((x) => x.key !== winner!.key)) this.ev(BUYER.name, "info", `Debrief sent to ${v.name}.`, "acme.orchestrator", v.agents[0].id, "debrief");
