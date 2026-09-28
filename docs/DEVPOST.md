@@ -73,7 +73,7 @@ brainbase, claude, anthropic, cloudflare-workers, workers-ai, durable-objects, s
 ## Links ("Try it out")
 
 - Live app: https://deal-room.ishaqibrahimm1000.workers.dev
-- A completed production deal with a paid Stripe test invoice: https://deal-room.ishaqibrahimm1000.workers.dev/?deal=d09d3e
+- A completed production deal with a paid Stripe test invoice: https://deal-room.ishaqibrahimm1000.workers.dev/?deal=b49d7f
   - Starting a new deal needs the demo passcode, because it spends model credits. Viewing is open.
 - Code: https://github.com/Gentle-mann/deal-room
 
