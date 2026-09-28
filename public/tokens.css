@@ -12,6 +12,7 @@
   --green:#3DD68C; --green-bg:rgba(61,214,140,.14); --green-line:rgba(61,214,140,.55);
   --amber:#F5A524; --amber-bg:rgba(245,165,36,.14); --amber-line:rgba(245,165,36,.55);
   --on-red:#FFFFFF; --on-status:#0A0A0A;
+  --green-text:#3DD68C; --amber-text:#F5A524; --stage-bg:#0A0A0A; --g-dim:.12; --g-dim-edge:.08;
   --chart-human:#8C8C8C; --chart-agent:#F5F5F5; --chart-grid:#2E2E2E; --chart-band:rgba(255,255,255,.06); --chart-knockout:#121212;
   --g-frontier:#F5F5F5; --g-open:#8F8F8F; --g-screen:#0A0A0A;
   --g-company:#111111; --g-company-line:#3A3A3A; --g-company-label:#F5F5F5; --g-label:#D4D4D4;
@@ -32,12 +33,13 @@
   --shadow-md:0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08); --shadow-lg:0 24px 64px rgba(0,0,0,.16);
   --focus:0 0 0 2px #FFFFFF, 0 0 0 4px #0A0A0A;
   --red:#DC2626; --red-bg:rgba(220,38,38,.08); --red-line:rgba(220,38,38,.45);
-  --green:#15803D; --green-bg:rgba(21,128,61,.09); --green-line:rgba(21,128,61,.45);
-  --amber:#B45309; --amber-bg:rgba(180,83,9,.10); --amber-line:rgba(180,83,9,.45);
+  --green:#16A34A; --green-bg:rgba(22,163,74,.09); --green-line:rgba(22,163,74,.40);
+  --amber:#F59E0B; --amber-bg:rgba(245,158,11,.12); --amber-line:rgba(217,119,6,.45);
+  --green-text:#15803D; --amber-text:#B45309; --stage-bg:#F3F3F3; --g-dim:.3; --g-dim-edge:.18;
   --on-red:#FFFFFF; --on-status:#FFFFFF;
   --chart-human:#8A8A8A; --chart-agent:#0A0A0A; --chart-grid:#E3E3E3; --chart-band:rgba(0,0,0,.045); --chart-knockout:#F7F7F7;
   --g-frontier:#0A0A0A; --g-open:#8C8C8C; --g-screen:#FFFFFF;
-  --g-company:#FAFAFA; --g-company-line:#CCCCCC; --g-company-label:#0A0A0A; --g-label:#262626;
+  --g-company:#FFFFFF; --g-company-line:#D4D4D4; --g-company-label:#0A0A0A; --g-label:#262626;
   --g-reports:#BDBDBD; --g-msg:#A3A3A3; --g-chan:#8F8F8F; --g-flash:#000000;
   --g-packet:#0A0A0A; --g-packet-text:#FFFFFF; --g-select:#000000; --g-dot:#525252;
   --paper-shadow:0 1px 2px rgba(0,0,0,.08), 0 16px 40px rgba(0,0,0,.14);
@@ -88,14 +90,14 @@ body.is-blocked .pill .dot { background: var(--red); }
 .tourpill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--text); color: var(--bg); font: 600 12px/16px Inter, sans-serif; }
 .code { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--text-2); font: 700 12px/16px "JetBrains Mono", monospace; letter-spacing: .04em; white-space: nowrap; }
 .code.block { color: var(--red); border-color: var(--red-line); background: var(--red-bg); }
-.code.money { color: var(--green); border-color: var(--green-line); background: var(--green-bg); }
-.code.flag { color: var(--amber); border-color: var(--amber-line); background: var(--amber-bg); }
-.tag { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--text-2); font: 500 12px/16px Inter, sans-serif; }
+.code.money { color: var(--green-text); border-color: var(--green-line); background: var(--green-bg); }
+.code.flag { color: var(--amber-text); border-color: var(--amber-line); background: var(--amber-bg); }
+.tag { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 2px 8px; max-width: 100%; flex-wrap: wrap; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--text-2); font: 500 12px/16px Inter, sans-serif; }
 .tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
 .tag .dot.working { background: var(--amber); } .tag .dot.blocked { background: var(--red); } .tag .dot.done { background: var(--green); }
 
 /* ---------- canvas overlays ---------- */
-.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--stage-bg); }
 #cy { position: absolute; inset: 0; }
 .chapter { position: absolute; top: 20px; left: 24px; max-width: 420px; z-index: 5; pointer-events: none; }
 .chapter .row1 { display: flex; align-items: center; gap: 8px; }
@@ -141,7 +143,7 @@ body.is-blocked #raceHead { background: var(--red); }
 body.is-blocked .chip.on::before { background: var(--red); }
 .chips.closed .chip::before { background: var(--green); }
 .chip-end { position: absolute; right: 0; top: 0; width: calc(var(--race-r) - 16px); }
-.chip-end.on::before { background: var(--green); } .chip-end.on span { color: var(--green); font-weight: 600; }
+.chip-end.on::before { background: var(--green); } .chip-end.on span { color: var(--green-text); font-weight: 600; }
 
 /* ---------- caption ---------- */
 .caption { position: absolute; left: 24px; bottom: 16px; max-width: 640px; z-index: 6; pointer-events: none; }
@@ -174,7 +176,7 @@ body.is-blocked .chip.on::before { background: var(--red); }
 /* ---------- closed takeover ---------- */
 .takeover { position: absolute; inset: 0; z-index: 20; background: var(--scrim); display: grid; place-items: center; text-align: center; padding: 32px; animation: fadein 400ms var(--ease-out); }
 .takeover .content { max-width: 760px; display: flex; flex-direction: column; gap: 8px; align-items: center; animation: rise 500ms var(--ease-out) 150ms both; }
-.takeover .eyebrow { font: 600 14px/20px Inter, sans-serif; letter-spacing: .01em; color: var(--green); display: inline-flex; align-items: center; gap: 8px; }
+.takeover .eyebrow { font: 600 14px/20px Inter, sans-serif; letter-spacing: .01em; color: var(--green-text); display: inline-flex; align-items: center; gap: 8px; }
 .takeover .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .takeover .headline { font: 700 128px/120px Inter, sans-serif; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; }
 .takeover .subline { font: 500 24px/32px Inter, sans-serif; color: var(--text-2); }

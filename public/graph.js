@@ -13,7 +13,7 @@ function readTheme() {
   return { frontier:V("--g-frontier"), open:V("--g-open"), screen:V("--g-screen"), text:V("--g-label"), strong:V("--g-company-label"),
     company:V("--g-company"), companyBorder:V("--g-company-line"), reports:V("--g-reports"), msg:V("--g-msg"), chan:V("--g-chan"), flash:V("--g-flash"),
     packetBg:V("--g-packet"), packetFg:V("--g-packet-text"), select:V("--g-select"), dot:V("--g-dot"),
-    red:V("--red"), green:V("--green"), amber:V("--amber"), onRed:V("--on-red"), onStatus:V("--on-status") };
+    red:V("--red"), green:V("--green"), amber:V("--amber"), onRed:V("--on-red"), onStatus:V("--on-status"), dim:Number(V("--g-dim")) || 0.12, dimEdge:Number(V("--g-dim-edge")) || 0.08 };
 }
 let T = {}, themeName = "dark";
 export const theme = () => T;
@@ -63,8 +63,9 @@ export function buildStyle(extra = []) {
       "color":T.text, "font-family":INTER, "font-size":12, "font-weight":500, "line-height":1.3, "min-zoomed-font-size":8 } },
     { selector: "node.agent[level = 0]", style: { "width":48, "height":72, "font-size":14, "font-weight":600, "color":T.strong } },
     { selector: "node:active", style: { "overlay-opacity":0 } },
-    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.10, "underlay-padding":8, "underlay-shape":"round-rectangle" } },
-    { selector: "node.agent.spot", style: { "underlay-color":T.select, "underlay-opacity":0.16, "underlay-padding":14, "underlay-shape":"round-rectangle", "font-weight":700 } },
+    { selector: "node.company.hidelabel", style: { "text-opacity":0 } },
+    { selector: "node.agent.focused", style: { "underlay-color":T.select, "underlay-opacity":0.07, "underlay-padding":12, "underlay-shape":"ellipse" } },
+    { selector: "node.agent.spot", style: { "underlay-color":T.select, "underlay-opacity":0.10, "underlay-padding":16, "underlay-shape":"ellipse", "font-weight":700, "color":T.strong } },
     { selector: "node.packet", style: { "shape":"round-rectangle", "height":20, "width":"data(pw)", "background-color":T.packetBg, "border-width":0, "label":"data(label)",
       "font-family":MONO, "font-size":11, "font-weight":700, "color":T.packetFg, "text-valign":"center", "text-halign":"center", "z-index":99, "events":"no" } },
     { selector: "node.packet.bad", style: { "background-color":T.red, "color":T.onRed } },
@@ -78,8 +79,8 @@ export function buildStyle(extra = []) {
     { selector: "edge.flash.bad", style: { "line-color":T.red, "target-arrow-color":T.red } },
     { selector: "edge.flash.money", style: { "line-color":T.green, "target-arrow-color":T.green } },
     { selector: "edge.chan", style: { "curve-style":"unbundled-bezier", "control-point-distances":[30], "control-point-weights":[0.5], "width":1.5, "line-color":T.chan, "line-style":"dotted", "line-dash-pattern":[2, 4], "events":"no" } },
-    { selector: ".dim", style: { "opacity":0.12 } },
-    { selector: "edge.dim", style: { "opacity":0.08 } },
+    { selector: ".dim", style: { "opacity":T.dim } },
+    { selector: "edge.dim", style: { "opacity":T.dimEdge } },
     ...extra,
   ];
 }

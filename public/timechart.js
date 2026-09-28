@@ -61,7 +61,7 @@ function racePlugin(headEl, mode) {
       ctx.font = "600 12px Inter, system-ui, sans-serif"; ctx.fillText("Humans", ex, hy - 8);
       ctx.font = "500 12px JetBrains Mono, monospace"; ctx.fillText(r.humanLabel, ex, hy + 8);
       const ay = Math.min(a.bottom - 8, Math.max(y.getPixelForValue(r.agentLive), hy + 40));
-      ctx.fillStyle = r.blocked ? css("--red") : r.closed ? css("--green") : css("--text");
+      ctx.fillStyle = r.blocked ? css("--red") : r.closed ? css("--green-text") : css("--text");
       ctx.font = "600 12px Inter, system-ui, sans-serif"; ctx.fillText("Agents", ex, ay - 8);
       ctx.font = "500 12px JetBrains Mono, monospace"; ctx.fillText(r.agentLabel, ex, ay + 8);
       // growth markers (scale view)
