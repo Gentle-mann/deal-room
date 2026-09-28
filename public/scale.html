@@ -28,7 +28,7 @@
     <div class="seg" id="depthSeg">
       <button type="button" data-d="1" title="Departments">L1</button><button type="button" data-d="2" title="Teams">L2</button><button type="button" data-d="3" title="Specialists">L3</button><button type="button" data-d="4" title="Sub-specialists">L4</button>
     </div>
-    <button class="btn btn-ghost" id="addVendor" type="button">+ Vendor <kbd>=</kbd></button>
+    <button class="btn btn-ghost" id="addVendor" type="button">+ Company <kbd>=</kbd></button>
     <button class="btn btn-ghost" id="pause" type="button">Pause <kbd>Space</kbd></button>
     <button class="btn btn-ghost btn-icon" id="theme" type="button" title="Theme (T)">◐</button>
     <a class="btn btn-ghost" href="/">← Live deal <kbd>V</kbd></a>
@@ -144,7 +144,7 @@ function render(animate) {
   document.querySelectorAll("#depthSeg button").forEach((b) => b.classList.toggle("active", Number(b.dataset.d) === depth));
 }
 function setDepth(d) { d = Math.max(1, Math.min(4, d)); if (d === depth) return; depth = d; render(true); race.marker(msgs, `L${d}`); }
-function addVendor() { if (vendorCount >= VENDOR_NAMES.length) return; vendorCount++; render(true); race.marker(msgs, "+V"); }
+function addVendor() { if (vendorCount >= VENDOR_NAMES.length) return; vendorCount++; render(true); race.marker(msgs, "+C"); }
 
 // Simulated traffic: tasks go down the chain of command, results come back up; orchestrators talk across companies.
 function tick() {
