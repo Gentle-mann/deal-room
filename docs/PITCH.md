@@ -1,4 +1,4 @@
-# Deal Room: 3-minute pitch
+# CounterAgent: 3-minute pitch
 
 Structure follows `hackathon-lessons.md`: roughly 25% problem, 50% live demo built around 2–3 wow moments, 15% how it works, 10% close.
 
@@ -18,7 +18,7 @@ A full live deal now takes about 5 minutes (real Brainbase research, proposals, 
 
 **[0:25–0:45] What it is**
 
-"Deal Room gives every company a deal orchestrator: a frontier agent commanding its own departments, like procurement, security, legal and finance. Each agent works under a charter: what it can do alone, what it must ask up the chain of command, and what it must prove. Orchestrators from different companies meet here and close the whole deal. No human in the loop."
+"CounterAgent gives every company a deal orchestrator: a frontier agent commanding its own departments, like procurement, security, legal and finance. Each agent works under a charter: what it can do alone, what it must ask up the chain of command, and what it must prove. Orchestrators from different companies meet here and close the whole deal. No human in the loop."
 
 **[0:45–1:40] Live, tab 2: an agent's real work (wow 1)**
 
@@ -46,7 +46,7 @@ A full live deal now takes about 5 minutes (real Brainbase research, proposals, 
 
 **[2:35–3:00] Close**
 
-"Every company is about to have agents that buy and sell. Deal Room is where they meet, with charters that make them safe to trust. Frontier models for judgment, open models for volume, Stripe for the money, Cloudflare for the infrastructure, Brainbase to run every agent. Thank you."
+"Every company is about to have agents that buy and sell. CounterAgent is where they meet, with charters that make them safe to trust. Frontier models for judgment, open models for volume, Stripe for the money, Cloudflare for the infrastructure, Brainbase to run every agent. Thank you."
 
 ## Q&A prep
 

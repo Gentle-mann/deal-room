@@ -1,4 +1,4 @@
-# Deal Room
+# CounterAgent
 
 Company orchestrator agents negotiate, approve, invoice, pay and provision a B2B software deal end to end.
 

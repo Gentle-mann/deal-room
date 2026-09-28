@@ -1,4 +1,4 @@
-# Devpost submission: Deal Room
+# Devpost submission: CounterAgent
 
 Paste from here. Plain text with no em-dashes. The story section uses Devpost markdown headers.
 
@@ -6,7 +6,7 @@ Paste from here. Plain text with no em-dashes. The story section uses Devpost ma
 
 ## Step 2: Project overview
 
-**Project name:** Deal Room
+**Project name:** CounterAgent
 
 **Elevator pitch (190/200 characters):**
 
@@ -20,7 +20,7 @@ Every company gets an AI deal orchestrator. Buyer and vendor agents negotiate, a
 Buying software at a large company takes 134 days on average, and security review alone adds two to six weeks. Buyers are already sending AI agents to run procurement: Forrester expects one in five B2B sellers to face an agent-led negotiation this year. The other side of the table is still people, and analysts put fully agent-to-agent deals at 2027 or later. We wanted to see if we could close one today, safely.
 
 ## What it does
-Deal Room gives every company a deal orchestrator: one frontier agent commanding its own departments (procurement, security, legal, finance, deal desk). Orchestrators from a buyer and competing vendors meet in the Deal Room and run the whole deal:
+CounterAgent gives every company a deal orchestrator: one frontier agent commanding its own departments (procurement, security, legal, finance, deal desk). Orchestrators from a buyer and competing vendors meet across the table and run the whole deal:
 
 - RFP and opening proposals
 - Market research: the buyer's procurement analyst (Claude on Brainbase) searches the web for current discount and renewal benchmarks, reads Acme's internal files (procurement policy, past contracts, pilot usage, budget memo), and writes a cited negotiation brief with an opening ask, a target and a walk-away price

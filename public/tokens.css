@@ -1,4 +1,4 @@
-/* Deal Room design tokens and shared components. Dark is the default; T toggles. */
+/* CounterAgent design tokens and shared components. Dark is the default; T toggles. */
 :root, :root[data-theme="dark"] {
   color-scheme: dark;
   --bg:#0A0A0A; --surface-1:#121212; --surface-2:#1A1A1A; --surface-3:#262626;

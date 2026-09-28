@@ -1,4 +1,4 @@
-# Deal Room design spec: Two Clocks: a monochrome command center where the gap between the human line and the agent line tells the story
+# CounterAgent design spec: Two Clocks: a monochrome command center where the gap between the human line and the agent line tells the story
 
 ## rationale
 Winner: Material "Two Clocks". It had the best projector engineering, and the idea of folding the stepper into the chart's x-axis carried both judges. Grafts and conflict rulings:
@@ -70,7 +70,7 @@ SCALE VIEW (scale.html), same shell with no side panel:
   - Chapter heading top-left (eyebrow "Simulation · same chain of command" plus the tour pill; title "4,507 agents · 7 companies", live).
   - Footnote bottom-left, max-width 520, 12/16 text-3, on --overlay with radius 8 and padding 8 12. Hidden when width ≤1360.
 - #cy inset 0. The scale fit uses the same fitSafe with safe area t 92, r 32, b 48, l 32.
-- Header left: wordmark "Deal Room", then "/ Scale" (text-3). No badge; the chapter eyebrow says "Simulation".
+- Header left: wordmark "CounterAgent", then "/ Scale" (text-3). No badge; the chapter eyebrow says "Simulation".
 - Header right:
   - Segmented "Depth" control: L1 | L2 | L3 | L4.
   - "+ Vendor" (ghost).
@@ -101,7 +101,7 @@ ROLES: size/line-height, weight, tracking, color. [1280 values in brackets]
 - Chapter title "Negotiation": Inter 28/32, 650, -0.02em, --text [24/28]
 - Caption who line: Inter 13/16, 600, --text-2
 - Caption text: Inter 18/26, 500, --text, 2-line clamp [16/24]
-- Wordmark "Deal Room": Inter 18/24, 650, -0.01em [16/24]
+- Wordmark "CounterAgent": Inter 18/24, 650, -0.01em [16/24]
 - Header meta "deal 7f3a2c · Acme Corp ↔ 2 vendors": JetBrains Mono 12/16, 500, --text-3 [hidden]
 - Buttons and tabs: Inter 14/20, 500, +0.005em [13/18]
 - Kbd hints: JetBrains Mono 12/16, 500, --text-3 [hidden]
@@ -192,7 +192,7 @@ ROLES: size/line-height, weight, tracking, color. [1280 values in brackets]
 HEADER (56px; 48px at 1280)
 - Left cluster, gap 12:
   - Mark: a 10x10 square, radius 2, background --text.
-  - Wordmark "Deal Room".
+  - Wordmark "CounterAgent".
   - Divider: 1x20, --line-strong.
   - Status pill.
   - Mono meta "deal 7f3a2c · Acme Corp ↔ 2 vendors" (hidden ≤1360).

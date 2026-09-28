@@ -73,7 +73,7 @@ h1{margin:0 0 8px;font:700 28px/36px Inter,sans-serif;letter-spacing:-0.02em}.mu
 <div class="row"><span>Annual price</span><b>$${fmt(o.price)}</b></div>
 <div class="row"><span>Purchase order</span><b>${s.po ?? "-"}</b></div>
 <div class="row"><span>Invoice</span><b>${s.invoice?.status ?? "-"}</b></div>
-<p class="muted">Negotiated, approved, invoiced, paid and provisioned by AI agents in the Deal Room. Deal ${s.id}.</p>
+<p class="muted">Negotiated, approved, invoiced, paid and provisioned by AI agents with CounterAgent. Deal ${s.id}.</p>
 </div></body></html>`,
         { headers: { "content-type": "text/html; charset=utf-8" } },
       );

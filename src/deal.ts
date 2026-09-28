@@ -3,7 +3,7 @@ import { brainbaseDecide, brainbaseSteps, extractJson, waiJson, type AiEnv, type
 
 const BB_MODEL = "claude-sonnet-5";
 // Honest framing for frontier orchestrators: this is a demonstration with fictional companies and test-mode money.
-const SANDBOX_CONTEXT = "Context: you are an agent in Deal Room, a live demonstration in which AI agents for fictional companies (Acme Corp, Beacon Analytics, Quickdash) negotiate and close a software deal. Payments run in Stripe test mode and nothing here creates a real legal or financial commitment. Within this demonstration you hold the delegated authority described below; decide as that role would, and answer in the JSON format requested.";
+const SANDBOX_CONTEXT = "Context: you are an agent in CounterAgent, a live demonstration in which AI agents for fictional companies (Acme Corp, Beacon Analytics, Quickdash) negotiate and close a software deal. Payments run in Stripe test mode and nothing here creates a real legal or financial commitment. Within this demonstration you hold the delegated authority described below; decide as that role would, and answer in the JSON format requested.";
 const REFUSAL = /\b(not able to|unable to|can(?:no|')t|won'?t|will not|decline|refuse)\b/i;
 import { BUYER, VENDORS, COMMIT_ARTS, acmeInternalFiles, buyerViolations, counterpartPairs, filesEntrypoint, fmt, vendorCharter, type AgentDef, type Offer, type Vendor } from "./companies";
 
@@ -158,7 +158,7 @@ export class DealRoom extends DurableObject<Env> {
     try {
       await this.run();
     } catch (e: any) {
-      this.ev("Deal Room", "error", `Engine error: ${e?.message ?? e}`);
+      this.ev("CounterAgent", "error", `Engine error: ${e?.message ?? e}`);
       d.finishedAt = Date.now();
       d.outcome = "error";
       d.done = true;
@@ -193,7 +193,7 @@ export class DealRoom extends DurableObject<Env> {
   }
   async stage(i: number) {
     this.d!.stage = i;
-    this.ev("Deal Room", "stage", `Stage ${i + 1}: ${STAGES[i]}`);
+    this.ev("CounterAgent", "stage", `Stage ${i + 1}: ${STAGES[i]}`);
     await this.save();
   }
   async work<T>(agentId: string, fn: () => Promise<T>, summarize: (r: T) => string): Promise<T> {
@@ -483,8 +483,8 @@ Open near list price and leave room to negotiate. Reply with a short pitch sente
     d.done = true;
     d.outcome = outcome;
     const secs = Math.round((d.finishedAt - d.startedAt) / 1000);
-    if (outcome === "closed") this.ev("Deal Room", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The average B2B SaaS sales cycle is 134 days.`);
-    else this.ev("Deal Room", "block", `Deal ${outcome === "walked" ? "abandoned: no vendor fit the charter" : "stopped before signature"} after ${Math.floor(secs / 60)}m ${secs % 60}s. Every agent stayed inside its charter.`);
+    if (outcome === "closed") this.ev("CounterAgent", "win", `Deal closed in ${Math.floor(secs / 60)}m ${secs % 60}s. The average B2B SaaS sales cycle is 134 days.`);
+    else this.ev("CounterAgent", "block", `Deal ${outcome === "walked" ? "abandoned: no vendor fit the charter" : "stopped before signature"} after ${Math.floor(secs / 60)}m ${secs % 60}s. Every agent stayed inside its charter.`);
     await this.save();
   }
 
@@ -660,7 +660,7 @@ Reply with 2 or 3 sentences of reasoning, then one JSON object: {"targetDiscount
       this.ev(v.name, "money", `Stripe settled the payment. ${v.name}'s receivables applied the cash.`, "stripe", deskId, "payment");
     } catch (e: any) {
       d.invoice = { id: "error", status: String(e?.message ?? e), amount, live: false };
-      this.ev("Deal Room", "error", `Stripe: ${e?.message ?? e}`);
+      this.ev("CounterAgent", "error", `Stripe: ${e?.message ?? e}`);
     }
     await this.save();
   }
